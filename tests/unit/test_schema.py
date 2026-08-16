@@ -20,8 +20,8 @@ def test_resolve_choices_from_list():
 
 
 def test_resolve_choices_static():
-    p = Param("nvim.method", "choice", choices=("apt", "github"))
-    assert p.resolve_choices({}) == ("apt", "github")
+    p = Param("example.mode", "choice", choices=("fast", "safe"))
+    assert p.resolve_choices({}) == ("fast", "safe")
 
 
 def test_resolve_choices_missing_returns_empty():

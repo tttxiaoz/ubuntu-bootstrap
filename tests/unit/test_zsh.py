@@ -79,16 +79,24 @@ def test_install_plugin_apt_fails_when_no_script(monkeypatch, make_ctx):
     assert ok is False
 
 
-def test_install_external_plugins_prefer_apt(tmp_path, monkeypatch, make_ctx):
-    """apt 有包时优先 apt 安装，不调用 git clone。"""
+def test_install_external_plugins_apt_only(tmp_path, monkeypatch, make_ctx):
+    """外部插件一律走 apt 安装并 symlink，不再 clone GitHub。"""
     calls = []
     monkeypatch.setattr(ZshTask, "_install_plugin_apt",
-                        lambda self, ctx, pkg, name, dest: calls.append(("symlink", name)) or True)
+                        lambda self, ctx, pkg, name, dest: calls.append(("apt", pkg, name)) or True)
 
-    ctx = make_ctx({"zsh": {
-        "external_plugins": {"zsh-autosuggestions": "https://github.com/x"},
-        "external_plugins_apt": {"zsh-autosuggestions": "zsh-autosuggestions"},
-    }})
+    ctx = make_ctx({"zsh": {"external_plugins_apt": {
+        "zsh-autosuggestions": "zsh-autosuggestions",
+        "zsh-syntax-highlighting": "zsh-syntax-highlighting",
+    }}})
     ZshTask()._install_external_plugins(ctx, str(tmp_path))
-    assert ("symlink", "zsh-autosuggestions") in calls
-    assert not any(c[0] == "clone" for c in calls)
+    assert ("apt", "zsh-autosuggestions", "zsh-autosuggestions") in calls
+    assert ("apt", "zsh-syntax-highlighting", "zsh-syntax-highlighting") in calls
+
+
+def test_install_external_plugins_logs_warning_on_failure(tmp_path, monkeypatch, make_ctx):
+    monkeypatch.setattr(ZshTask, "_install_plugin_apt",
+                        lambda self, ctx, pkg, name, dest: False)
+    ctx = make_ctx({"zsh": {"external_plugins_apt": {"zsh-autosuggestions": "pkg"}}})
+    ZshTask()._install_external_plugins(ctx, str(tmp_path))
+    assert any("zsh-autosuggestions" in m and "失败" in m for m in ctx.log.messages)

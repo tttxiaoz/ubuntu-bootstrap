@@ -48,8 +48,8 @@ from ..platform import sys as psys
     description="任务说明（向导展示）",
     depends_on=("apt_mirror",),            # 依赖的任务 id，决定执行顺序
     params=[                               # 本任务的配置契约（驱动向导/校验/--list）
-        Param("my_task.mode", "choice", default="apt",
-              choices=("apt", "github"), label="安装方式"),
+        Param("my_task.mode", "choice", default="fast",
+              choices=("fast", "safe"), label="运行模式"),
     ],
 )
 class MyTask(Task):

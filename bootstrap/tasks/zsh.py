@@ -63,16 +63,14 @@ class ZshTask(Task):
     def _install_external_plugins(self, ctx: Context, home: str) -> None:
         custom = f"{home}/.oh-my-zsh/custom/plugins"
         os.makedirs(custom, exist_ok=True)
-        externals = ctx.config.get("zsh.external_plugins") or {}
         apt_map = ctx.config.get("zsh.external_plugins_apt") or {}
-        for name, repo in externals.items():
+        for name, pkg in apt_map.items():
             dest = f"{custom}/{name}"
             if os.path.isdir(dest):
                 continue
-            pkg = apt_map.get(name)
-            if pkg and self._install_plugin_apt(ctx, pkg, name, dest):
-                continue
-            ctx.run_cmd(["git", "clone", "--depth", "1", repo, dest])
+            if not self._install_plugin_apt(ctx, pkg, name, dest):
+                ctx.log.log(f"⚠️ 插件 {name} 安装失败（apt 无包或脚本缺失），已跳过",
+                            style="yellow")
 
     def _install_plugin_apt(self, ctx: Context, pkg: str, name: str, dest: str) -> bool:
         """apt 安装插件并 symlink 进 oh-my-zsh custom/plugins；失败返回 False。"""

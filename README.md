@@ -91,7 +91,6 @@ cd ubuntu-bootstrap
 - `[system]` `timezone` / `timezones`、`locale` / `locales`：时区与语言候选
 - `[base_tools]` `packages` / `selected`：基础工具候选与选中子集（`selected` 留空=安装全部）
 - `[zsh]` `theme`：`default` / `random` / `powerlevel10k`；`plugins` 插件列表；外部插件与 apt 包映射
-- `[nvim]` / `[fzf]` `method`：`apt` 或 `github`
 - `[password]` `value`：非交互（`--all`）时用于设置用户密码（可选，明文存储请自行权衡）
 - `[ssh]` `password_auth` / `permit_root_login`：SSH 开关（布尔）
 - `[ui]` `pip_index_url` / `packages`：交互 UI 依赖的 pip 源与包列表
@@ -101,7 +100,7 @@ cd ubuntu-bootstrap
 ## 说明
 
 - 需要 root 权限，脚本会自动通过 `sudo` 重新执行自身。
-- 安装方式原则：**能用 apt 的组件一律用 apt**（更快、可用国内镜像）；仅 apt 源没有的（oh-my-zsh、powerlevel10k）才从 GitHub 获取。
+- 安装方式原则：**一律用 apt**（neovim / fzf / zsh 插件均走 apt，更快、可用国内镜像）；仅 apt 源没有的（oh-my-zsh、powerlevel10k）才从 GitHub 获取。
 - 通过 `SUDO_USER` 识别真实用户，zsh/oh-my-zsh 配置作用于该用户（而非 root）。
 - 所有系统配置文件写入前会先备份为 `*.bak`。
 - powerlevel10k 主题会跳过首次交互向导；完整字形显示需要 Nerd Font 终端，可另跑 `p10k configure`。

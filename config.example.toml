@@ -25,15 +25,9 @@ value = ""
 theme = "default"                 # default | random | powerlevel10k
 plugins = ["git", "web-search", "z", "fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"]
 oh_my_zsh_url = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
-external_plugins = { "zsh-autosuggestions" = "https://github.com/zsh-users/zsh-autosuggestions", "zsh-syntax-highlighting" = "https://github.com/zsh-users/zsh-syntax-highlighting" }
+# 外部插件：apt 源（universe）有对应包，一律 apt 安装并 symlink 进 oh-my-zsh
 external_plugins_apt = { "zsh-autosuggestions" = "zsh-autosuggestions", "zsh-syntax-highlighting" = "zsh-syntax-highlighting" }
 p10k_repo = "https://github.com/romkatv/powerlevel10k"
-
-[nvim]
-method = "apt"                    # apt | github
-
-[fzf]
-method = "apt"                    # apt | github
 
 [ssh]
 # ⚠️ 安全提示：公网服务器同时开启「密码认证 + root 登录」有被暴力破解的风险，建议改用密钥登录并设为 false。

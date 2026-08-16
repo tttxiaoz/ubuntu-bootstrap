@@ -1,6 +1,6 @@
 # Ubuntu Bootstrap 重构设计文档
 
-> 状态：已完成（一期~三期：配置系统 / core 执行引擎 / 任务迁移 / 单元测试；四期：Docker 集成测试；五期：README / CONTRIBUTING / 快照覆盖）。
+> 状态：已完成（一期~三期：配置系统 / core 执行引擎 / 任务迁移 / 单元测试；四期：Docker 集成测试；五期：README / CONTRIBUTING / 快照覆盖）。后续调整：任务顺序重排；neovim/fzf/zsh 插件一律 apt，仅 oh-my-zsh 与 powerlevel10k 保留 GitHub。
 > 目标：在保留现有「幂等任务 + 可降级向导」设计哲学的前提下，做一次架构级重写。
 
 ---
