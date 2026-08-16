@@ -159,5 +159,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print("\n已中断。")
+        print("\n已中断，退出。")
         sys.exit(130)

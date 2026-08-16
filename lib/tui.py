@@ -179,11 +179,8 @@ def choose(options: list, *, header: str = "", selected: str = "") -> str | None
     if questionary_available():
         import questionary
         default = selected if selected in options else None
-        try:
-            return questionary.select(header or "请选择", choices=list(options),
-                                      default=default).ask()
-        except KeyboardInterrupt:
-            return None
+        return questionary.select(header or "请选择", choices=list(options),
+                                  default=default).ask()
     # 降级：数字选择（回车=当前值）
     if header:
         print(_paint(header, "cyan"))
@@ -206,10 +203,7 @@ def confirm(prompt: str, *, default: bool = True) -> bool:
     """确认框，返回布尔；default 决定回车默认值。questionary 缺失时降级 input。"""
     if questionary_available():
         import questionary
-        try:
-            result = questionary.confirm(prompt, default=default).ask()
-        except KeyboardInterrupt:
-            return default
+        result = questionary.confirm(prompt, default=default).ask()
         return bool(result) if result is not None else default
     hint = "[Y/n]" if default else "[y/N]"
     try:
@@ -230,10 +224,7 @@ def multiselect(options: list, *, header: str = "", selected: list | None = None
         import questionary
         # checkbox 的 default 只接受单个值，预设多项需用 Choice(..., checked=True)
         choices = [questionary.Choice(o, checked=(o in preselect)) for o in options]
-        try:
-            result = questionary.checkbox(header or "请选择", choices=choices).ask()
-        except KeyboardInterrupt:
-            return preselect
+        result = questionary.checkbox(header or "请选择", choices=choices).ask()
         return list(result) if result else preselect
     # 降级：数字多选（回车=默认全选/已选）
     if header:
@@ -255,16 +246,10 @@ def password(prompt: str) -> str | None:
     """输入密码（两次确认），返回密码或 None（取消/不一致）。"""
     if questionary_available():
         import questionary
-        try:
-            p1 = questionary.password(f"{prompt}（输入新密码）:").ask()
-        except KeyboardInterrupt:
-            return None
+        p1 = questionary.password(f"{prompt}（输入新密码）:").ask()
         if not p1:
             return None
-        try:
-            p2 = questionary.password(f"{prompt}（再次确认）:").ask()
-        except KeyboardInterrupt:
-            return None
+        p2 = questionary.password(f"{prompt}（再次确认）:").ask()
         if p1 != p2:
             print(_paint("两次输入不一致，已跳过", "red"))
             return None
@@ -273,13 +258,13 @@ def password(prompt: str) -> str | None:
     import getpass
     try:
         p1 = getpass.getpass(f"{prompt}: ")
-    except (EOFError, KeyboardInterrupt):
+    except EOFError:
         return None
     if not p1:
         return None
     try:
         p2 = getpass.getpass(f"再次确认 {prompt}: ")
-    except (EOFError, KeyboardInterrupt):
+    except EOFError:
         return None
     if p1 != p2:
         print(_paint("两次输入不一致，已跳过", "red"))

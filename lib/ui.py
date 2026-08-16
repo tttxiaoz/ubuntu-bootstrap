@@ -140,57 +140,58 @@ def _plain_run(tasks, cfg, force, log_dir) -> dict:
     ordered = runner.topo_sort(tasks)
     results: dict = {}
 
-    print("Ubuntu 初始化工具（无 TTY 模式）——逐步确认，回车=推荐值")
-    for t in ordered:
-        done, note = _status_of(t, cfg)
-        default = "n" if done else "y"
-        label = "跳过（已配置）" if done else "执行"
-        hint = "[Y/n]" if not done else "[y/N]"
-        try:
-            ans = input(f"[{label}] {t.name} — {t.description}  {hint} ").strip().lower()
-        except EOFError:
-            ans = ""
-        want = (ans in ("", "y", "yes")) if default == "y" else (ans in ("y", "yes"))
-        if not want:
-            results[t.id] = "skip"
-            continue
+    try:
+        print("Ubuntu 初始化工具（无 TTY 模式）——逐步确认，回车=推荐值")
+        for t in ordered:
+            done, note = _status_of(t, cfg)
+            default = "n" if done else "y"
+            label = "跳过（已配置）" if done else "执行"
+            hint = "[Y/n]" if not done else "[y/N]"
+            try:
+                ans = input(f"[{label}] {t.name} — {t.description}  {hint} ").strip().lower()
+            except EOFError:
+                ans = ""
+            want = (ans in ("", "y", "yes")) if default == "y" else (ans in ("y", "yes"))
+            if not want:
+                results[t.id] = "skip"
+                continue
 
-        # 配置项
-        for q in questions_for_task(cfg, t.id):
-            opts = resolve_options(cfg, q)
-            qtype = q["type"]
-            if qtype == "choice":
-                cur = getattr(cfg, q["config_key"], None)
-                for i, o in enumerate(opts):
-                    mark = ">" if o == cur else " "
-                    print(f"  {mark} {i + 1}. {o}")
-                raw = input(f"{q['name']} [1-{len(opts)}] ").strip()
-                if raw.isdigit() and 1 <= int(raw) <= len(opts):
-                    setattr(cfg, q["config_key"], opts[int(raw) - 1])
-            elif qtype == "bool":
-                cur = getattr(cfg, q["config_key"], "yes") == "yes"
-                raw = input(f"{q['name']} [y/n，默认 {'y' if cur else 'n'}] ").strip().lower()
-                if raw:
-                    setattr(cfg, q["config_key"], "yes" if raw in ("y", "yes") else "no")
-            elif qtype == "multi":
-                cur = getattr(cfg, q["config_key"], None) or []
-                preselect = list(cur) if cur else list(opts)
-                for i, o in enumerate(opts):
-                    mark = "x" if o in preselect else " "
-                    print(f"  {mark} {i + 1}. {o}")
-                raw = input(f"{q['name']} 多选 [逗号分隔，回车=全选] ").strip()
-                if raw:
-                    idxs = [int(x) for x in raw.replace(",", " ").split() if x.isdigit()]
-                    setattr(cfg, q["config_key"],
-                            [opts[i - 1] for i in idxs if 1 <= i <= len(opts)])
-            elif qtype == "password":
-                value = tui.password(q["name"])
-                if value is not None:
-                    setattr(cfg, q["config_key"], value)
+            # 配置项
+            for q in questions_for_task(cfg, t.id):
+                opts = resolve_options(cfg, q)
+                qtype = q["type"]
+                if qtype == "choice":
+                    cur = getattr(cfg, q["config_key"], None)
+                    for i, o in enumerate(opts):
+                        mark = ">" if o == cur else " "
+                        print(f"  {mark} {i + 1}. {o}")
+                    raw = input(f"{q['name']} [1-{len(opts)}] ").strip()
+                    if raw.isdigit() and 1 <= int(raw) <= len(opts):
+                        setattr(cfg, q["config_key"], opts[int(raw) - 1])
+                elif qtype == "bool":
+                    cur = getattr(cfg, q["config_key"], "yes") == "yes"
+                    raw = input(f"{q['name']} [y/n，默认 {'y' if cur else 'n'}] ").strip().lower()
+                    if raw:
+                        setattr(cfg, q["config_key"], "yes" if raw in ("y", "yes") else "no")
+                elif qtype == "multi":
+                    cur = getattr(cfg, q["config_key"], None) or []
+                    preselect = list(cur) if cur else list(opts)
+                    for i, o in enumerate(opts):
+                        mark = "x" if o in preselect else " "
+                        print(f"  {mark} {i + 1}. {o}")
+                    raw = input(f"{q['name']} 多选 [逗号分隔，回车=全选] ").strip()
+                    if raw:
+                        idxs = [int(x) for x in raw.replace(",", " ").split() if x.isdigit()]
+                        setattr(cfg, q["config_key"],
+                                [opts[i - 1] for i in idxs if 1 <= i <= len(opts)])
+                elif qtype == "password":
+                    value = tui.password(q["name"])
+                    if value is not None:
+                        setattr(cfg, q["config_key"], value)
 
-        results[t.id] = runner.run_one(t, cfg, logger, force=force)
-        print()
-
-    logger.close()
+            results[t.id] = runner.run_one(t, cfg, logger, force=force)
+            print()
+    finally:
+        logger.close()
     runner.print_summary(results)
     return results

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from lib import tui
 
 
@@ -133,3 +135,52 @@ def test_multiselect_questionary_uses_checked(monkeypatch):
     assert [c[0] for c in captured["choices"]] == ["git", "curl", "htop"]
     assert [c[1] for c in captured["choices"]] == [True, True, False]
     assert "default" not in captured["kwargs"]
+
+
+def _patch_questionary_interrupt(monkeypatch, attrs):
+    """注入会抛 KeyboardInterrupt 的假 questionary 模块，返回它的 attrs。"""
+    import sys
+
+    class FakePrompt:
+        def ask(self):
+            raise KeyboardInterrupt
+
+    fake_mod = SimpleNamespace(**{k: (lambda *a, **k: FakePrompt()) for k in attrs})
+    monkeypatch.setattr(tui, "questionary_available", lambda: True)
+    monkeypatch.setitem(sys.modules, "questionary", fake_mod)
+    return fake_mod
+
+
+def test_choose_propagates_keyboard_interrupt(monkeypatch):
+    _patch_questionary_interrupt(monkeypatch, ["select"])
+    with pytest.raises(KeyboardInterrupt):
+        tui.choose(["a", "b"])
+
+
+def test_confirm_propagates_keyboard_interrupt(monkeypatch):
+    _patch_questionary_interrupt(monkeypatch, ["confirm"])
+    with pytest.raises(KeyboardInterrupt):
+        tui.confirm("q?")
+
+
+def test_multiselect_propagates_keyboard_interrupt(monkeypatch):
+    import sys
+
+    class FakePrompt:
+        def ask(self):
+            raise KeyboardInterrupt
+
+    fake_mod = SimpleNamespace(
+        Choice=lambda *a, **k: None,
+        checkbox=lambda *a, **k: FakePrompt(),
+    )
+    monkeypatch.setattr(tui, "questionary_available", lambda: True)
+    monkeypatch.setitem(sys.modules, "questionary", fake_mod)
+    with pytest.raises(KeyboardInterrupt):
+        tui.multiselect(["a", "b"])
+
+
+def test_password_propagates_keyboard_interrupt(monkeypatch):
+    _patch_questionary_interrupt(monkeypatch, ["password"])
+    with pytest.raises(KeyboardInterrupt):
+        tui.password("密码")
