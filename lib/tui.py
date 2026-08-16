@@ -228,9 +228,10 @@ def multiselect(options: list, *, header: str = "", selected: list | None = None
     preselect = list(selected) if selected else list(options)
     if questionary_available():
         import questionary
+        # checkbox 的 default 只接受单个值，预设多项需用 Choice(..., checked=True)
+        choices = [questionary.Choice(o, checked=(o in preselect)) for o in options]
         try:
-            result = questionary.checkbox(header or "请选择", choices=list(options),
-                                          default=preselect).ask()
+            result = questionary.checkbox(header or "请选择", choices=choices).ask()
         except KeyboardInterrupt:
             return preselect
         return list(result) if result else preselect

@@ -100,3 +100,36 @@ def test_password_fallback_mismatch(monkeypatch):
     it = iter(["pw1", "pw2"])
     monkeypatch.setattr(getpass, "getpass", lambda *a, **k: next(it))
     assert tui.password("密码") is None
+
+
+def test_multiselect_questionary_uses_checked(monkeypatch):
+    """questionary.checkbox 的 default 只接受单值，预设多项必须用 Choice(checked=True)。"""
+    import sys
+
+    captured = {}
+
+    class FakeChoice:
+        def __init__(self, title, checked=False):
+            captured["choices"].append((title, checked))
+
+    class FakePrompt:
+        def ask(self):
+            return ["git", "curl"]
+
+    def fake_checkbox(message, choices, **kwargs):
+        captured["message"] = message
+        captured["n_choices"] = len(choices)
+        captured["kwargs"] = kwargs
+        return FakePrompt()
+
+    fake_mod = SimpleNamespace(Choice=FakeChoice, checkbox=fake_checkbox)
+    monkeypatch.setattr(tui, "questionary_available", lambda: True)
+    monkeypatch.setitem(sys.modules, "questionary", fake_mod)
+
+    captured["choices"] = []
+    result = tui.multiselect(["git", "curl", "htop"], selected=["git", "curl"])
+
+    assert result == ["git", "curl"]
+    assert [c[0] for c in captured["choices"]] == ["git", "curl", "htop"]
+    assert [c[1] for c in captured["choices"]] == [True, True, False]
+    assert "default" not in captured["kwargs"]
