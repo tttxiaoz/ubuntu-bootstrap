@@ -11,6 +11,7 @@ def _cfg(mirror="清华 TUNA"):
     return SimpleNamespace(
         APT_MIRROR=mirror,
         APT_MIRRORS={
+            "不更改": "",
             "清华 TUNA": "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/",
             "阿里云": "https://mirrors.aliyun.com/ubuntu/",
         },
@@ -79,3 +80,24 @@ def test_patch_classic_rewrites_archive_and_security(tmp_path, monkeypatch):
     assert "https://mirrors.tuna.tsinghua.edu.cn/ubuntu jammy main" in text
     assert "https://mirrors.tuna.tsinghua.edu.cn/ubuntu jammy-security main" in text
     assert "# comment" in text
+
+
+def test_is_skip():
+    assert apt._is_skip(_cfg("不更改")) is True
+    assert apt._is_skip(_cfg("清华 TUNA")) is False
+
+
+def test_check_skip():
+    done, note = apt.AptMirrorTask().check(_cfg("不更改"), log=None)
+    assert done is True
+    assert "不更改" in note
+
+
+def test_run_skip_no_write(monkeypatch):
+    called = []
+    monkeypatch.setattr(apt.utils, "detect_codename",
+                        lambda: called.append(1) or "jammy")
+    logs = []
+    apt.AptMirrorTask().run(_cfg("不更改"), log=logs.append)
+    assert called == [], "选择「不更改」时不应调用 detect_codename"
+    assert any("不更改" in m for m in logs)

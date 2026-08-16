@@ -27,6 +27,14 @@ def _rewrite_deb_uri(line: str, mirror: str) -> str:
     return line
 
 
+# 「不更改」选项的显示名：选中时跳过换源，保持系统原有 apt 源
+_SKIP_LABEL = "不更改"
+
+
+def _is_skip(cfg) -> bool:
+    return getattr(cfg, "APT_MIRROR", None) == _SKIP_LABEL
+
+
 def _mirror_base(cfg) -> str:
     name = getattr(cfg, "APT_MIRROR", None)
     mirrors = getattr(cfg, "APT_MIRRORS", None)
@@ -63,11 +71,17 @@ class AptMirrorTask(Task):
     depends_on = []
 
     def check(self, cfg, log=None):
+        if _is_skip(cfg):
+            return True, "已选择不更改源"
         if _has_mirror(cfg):
             return True, "已指向镜像源"
         return False, "未切换镜像源"
 
     def run(self, cfg, log=None):
+        if _is_skip(cfg):
+            if log:
+                log("⏭ 已选择不更改 apt 源，跳过。")
+            return
         codename = utils.detect_codename()
         mirror = _mirror_base(cfg)
         if _is_deb822(codename):

@@ -5,15 +5,16 @@
 """
 
 # ============ apt 源 ============
-# 可选镜像源（向导中单选，字典键为显示名，值为镜像地址）
+# 可选镜像源（向导中单选，字典键为显示名，值为镜像地址；值留空表示「不更改」）
 # 镜像地址含 {codename} 占位符，会被替换为 jammy/noble/resolute
 APT_MIRRORS = {
+    "不更改": "",
     "清华 TUNA": "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/",
     "阿里云": "https://mirrors.aliyun.com/ubuntu/",
     "中科大": "https://mirrors.ustc.edu.cn/ubuntu/",
     "华为云": "https://repo.huaweicloud.com/ubuntu/",
 }
-# 当前选中的镜像名（对应 APT_MIRRORS 的键）
+# 当前选中的镜像名（对应 APT_MIRRORS 的键；选「不更改」则跳过换源）
 APT_MIRROR = "清华 TUNA"
 
 # ============ 系统 ============

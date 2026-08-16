@@ -32,7 +32,7 @@ cd ubuntu-bootstrap
 
 | 任务 | 说明 |
 |---|---|
-| apt 源切换 | 换国内镜像（默认清华 TUNA，可在 config.py 改），兼容 22.04 的 `sources.list` 与 24.04/26.04 的 deb822 `.sources` |
+| apt 源切换 | 换国内镜像（默认清华 TUNA，可选「不更改」保持原样），兼容 22.04 的 `sources.list` 与 24.04/26.04 的 deb822 `.sources` |
 | 时区与 locale | 时区 Asia/Shanghai，locale zh_CN.UTF-8 |
 | 系统更新 | `apt-get update && upgrade` |
 | 基础工具 | git / curl / wget / htop / build-essential 等（向导可多选） |
@@ -85,7 +85,7 @@ cd ubuntu-bootstrap
 
 | 任务 | 可交互配置 |
 |---|---|
-| apt 源 | 镜像源（清华 / 阿里云 / 中科大 / 华为云） |
+| apt 源 | 镜像源（不更改 / 清华 / 阿里云 / 中科大 / 华为云） |
 | 时区与 locale | 时区（上海/香港/东京/UTC）、语言（zh_CN/en_US） |
 | 基础工具 | 要安装的工具（多选） |
 | zsh | 主题（default / random / powerlevel10k） |
