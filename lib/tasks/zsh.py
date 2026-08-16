@@ -60,10 +60,44 @@ class ZshTask(Task):
         custom = f"{home}/.oh-my-zsh/custom/plugins"
         os.makedirs(custom, exist_ok=True)
         externals = getattr(cfg, "ZSH_EXTERNAL_PLUGINS", {})
+        apt_map = getattr(cfg, "ZSH_EXTERNAL_PLUGINS_APT", {})
         for name, repo in externals.items():
             dest = f"{custom}/{name}"
-            if not os.path.isdir(dest):
-                utils.run_cmd(["git", "clone", "--depth", "1", repo, dest], log=log)
+            if os.path.isdir(dest):
+                continue
+            # 优先 apt（universe 源有包），失败回退 github clone
+            pkg = apt_map.get(name)
+            if pkg and self._install_plugin_apt(pkg, name, dest, log):
+                continue
+            utils.run_cmd(["git", "clone", "--depth", "1", repo, dest], log=log)
+
+    def _install_plugin_apt(self, pkg: str, name: str, dest: str, log) -> bool:
+        """apt 安装插件并 symlink 进 oh-my-zsh custom/plugins；失败返回 False。"""
+        try:
+            utils.apt_install([pkg], log=log)
+        except utils.TaskError:
+            return False
+        src = self._find_plugin_script(pkg, name)
+        if not src:
+            return False
+        os.makedirs(dest, exist_ok=True)
+        target = f"{dest}/{name}.plugin.zsh"
+        if not os.path.exists(target):
+            os.symlink(src, target)
+        return True
+
+    @staticmethod
+    def _find_plugin_script(pkg: str, name: str) -> str | None:
+        """定位 apt 安装的插件主脚本（不同发行版路径略有差异）。"""
+        candidates = [
+            f"/usr/share/{name}/{name}.zsh",
+            f"/usr/share/{pkg}/{pkg}.zsh",
+            f"/usr/share/{name}/{name}.plugin.zsh",
+        ]
+        for c in candidates:
+            if os.path.isfile(c):
+                return c
+        return None
 
     def _install_p10k(self, cfg, home, log) -> None:
         custom_themes = f"{home}/.oh-my-zsh/custom/themes"

@@ -104,6 +104,7 @@ cd ubuntu-bootstrap
 - `BASE_PACKAGES` / `BASE_PACKAGES_SELECTED`：基础工具候选与选中子集（留空=安装全部）
 - `ZSH_THEME`：`default` / `random` / `powerlevel10k`
 - `ZSH_PLUGINS`：插件列表
+- `ZSH_EXTERNAL_PLUGINS` / `ZSH_EXTERNAL_PLUGINS_APT`：外部插件及对应 apt 包（优先 apt 安装，失败回退 GitHub）
 - `NEOVIM_INSTALL_METHOD` / `FZF_INSTALL_METHOD`：`apt` 或 `github`
 - `USER_PASSWORD`：非交互（`--all`）时用于设置用户密码（可选，明文存储请自行权衡）
 - `SSH_PASSWORD_AUTH` / `SSH_PERMIT_ROOT_LOGIN`：SSH 开关
@@ -113,6 +114,7 @@ cd ubuntu-bootstrap
 ## 说明
 
 - 需要 root 权限，脚本会自动通过 `sudo` 重新执行自身。
+- 安装方式原则：**能用 apt 的组件一律用 apt**（更快、可用国内镜像）；仅 apt 源没有的（oh-my-zsh、powerlevel10k）才从 GitHub 获取。
 - 通过 `SUDO_USER` 识别真实用户，zsh/oh-my-zsh 配置作用于该用户（而非 root）。
 - 所有系统配置文件写入前会先备份为 `*.bak`。
 - powerlevel10k 主题会跳过首次交互向导；完整字形显示需要 Nerd Font 终端，可另跑 `p10k configure`。

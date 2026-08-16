@@ -45,6 +45,12 @@ ZSH_EXTERNAL_PLUGINS = {
     "zsh-autosuggestions": "https://github.com/zsh-users/zsh-autosuggestions",
     "zsh-syntax-highlighting": "https://github.com/zsh-users/zsh-syntax-highlighting",
 }
+# 这些插件在 apt 源（universe）有对应包，优先 apt 安装并 symlink 进 oh-my-zsh；
+# apt 安装失败时回退上面的 github clone。
+ZSH_EXTERNAL_PLUGINS_APT = {
+    "zsh-autosuggestions": "zsh-autosuggestions",
+    "zsh-syntax-highlighting": "zsh-syntax-highlighting",
+}
 POWERLEVEL10K_REPO = "https://github.com/romkatv/powerlevel10k"
 
 # ============ 编辑器 / 工具 ============
