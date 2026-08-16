@@ -1,0 +1,45 @@
+# config.example.toml —— Ubuntu 新机初始化配置
+# 首次运行会从本文件复制生成 config.toml，按需修改 config.toml 即可。
+
+[apt]
+# 选 "不更改" 则跳过换源
+mirror = "清华 TUNA"
+mirrors = { "不更改" = "", "清华 TUNA" = "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/", "阿里云" = "https://mirrors.aliyun.com/ubuntu/", "中科大" = "https://mirrors.ustc.edu.cn/ubuntu/", "华为云" = "https://repo.huaweicloud.com/ubuntu/" }
+
+[system]
+timezone = "Asia/Shanghai"
+timezones = ["Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "UTC"]
+locale = "zh_CN.UTF-8"
+locales = ["zh_CN.UTF-8", "en_US.UTF-8"]
+
+[base_tools]
+packages = ["git", "curl", "wget", "htop", "build-essential", "unzip", "ca-certificates", "gnupg", "lsb-release", "software-properties-common"]
+# 实际安装的工具子集；留空 = 安装全部候选
+selected = []
+
+[password]
+# 明文密码（仅 --all 非交互时使用），留空则跳过设置
+value = ""
+
+[zsh]
+theme = "default"                 # default | random | powerlevel10k
+plugins = ["git", "web-search", "z", "fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"]
+oh_my_zsh_url = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+external_plugins = { "zsh-autosuggestions" = "https://github.com/zsh-users/zsh-autosuggestions", "zsh-syntax-highlighting" = "https://github.com/zsh-users/zsh-syntax-highlighting" }
+external_plugins_apt = { "zsh-autosuggestions" = "zsh-autosuggestions", "zsh-syntax-highlighting" = "zsh-syntax-highlighting" }
+p10k_repo = "https://github.com/romkatv/powerlevel10k"
+
+[nvim]
+method = "apt"                    # apt | github
+
+[fzf]
+method = "apt"                    # apt | github
+
+[ssh]
+# ⚠️ 安全提示：公网服务器同时开启「密码认证 + root 登录」有被暴力破解的风险，建议改用密钥登录并设为 false。
+password_auth = true
+permit_root_login = true
+
+[ui]
+pip_index_url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+packages = ["rich", "questionary"]
