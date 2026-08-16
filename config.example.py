@@ -39,7 +39,7 @@ USER_PASSWORD = ""
 # ============ zsh ============
 OH_MY_ZSH_INSTALL_URL = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 # 主题： "default" | "random" | "powerlevel10k"
-ZSH_THEME = "random"
+ZSH_THEME = "default"
 ZSH_PLUGINS = ["git", "web-search", "z", "fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"]
 ZSH_EXTERNAL_PLUGINS = {
     "zsh-autosuggestions": "https://github.com/zsh-users/zsh-autosuggestions",
