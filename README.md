@@ -2,6 +2,34 @@
 
 一键/按需配置新装 Ubuntu 服务器的基础环境。纯 Python 标准库实现，零 pip 依赖，Ubuntu 22.04 / 24.04 / 26.04 均自带 python3 可直接运行。
 
+## 快速开始（新服务器上一键拉取并执行）
+
+```bash
+# 拉取代码并进入目录
+git clone https://github.com/tttxiaoz/ubuntu-bootstrap.git
+cd ubuntu-bootstrap
+
+# 一键执行全部任务（推荐）
+sudo python3 init.py --all
+
+# 或交互式菜单按需选择
+sudo python3 init.py
+```
+
+> **私有仓库认证**：`git clone` 私有仓库需要先登录 GitHub 账号。两种方式任选：
+>
+> ```bash
+> # 方式一（推荐）：用 GitHub CLI 登录，之后 git 会复用其凭证
+> sudo apt install gh && gh auth login
+>
+> # 方式二：使用 Personal Access Token（URL 中嵌入 token）
+> git clone https://<你的token>@github.com/tttxiaoz/ubuntu-bootstrap.git
+> ```
+>
+> 或直接手动 `scp` 把本机这份代码传到服务器再执行，免去认证。
+
+> 无需发布版本：直接 clone `main` 分支即可运行。脚本用纯 Python 标准库，Ubuntu 自带 python3，零额外依赖。
+
 ## 功能
 
 | 任务 | 说明 |
@@ -18,6 +46,8 @@
 每个任务执行前都会**先检测是否已配置**，已配置的自动跳过（幂等）；菜单中也会实时显示每个任务的当前状态。
 
 ## 使用
+
+先按上方「快速开始」拉取代码并进入目录，然后：
 
 ```bash
 # 交互式多选菜单（推荐）
