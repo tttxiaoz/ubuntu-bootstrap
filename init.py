@@ -32,12 +32,24 @@ def ensure_root() -> None:
     os.execvp("sudo", ["sudo", sys.executable, *sys.argv])
 
 
+def _chown_to_sudo_user(path: str) -> None:
+    """把 root 生成的文件属主改回真实调用者（sudo 后默认属主是 root）。"""
+    user = os.environ.get("SUDO_USER")
+    if not user or user == "root":
+        return
+    try:
+        shutil.chown(path, user=user)
+    except (OSError, LookupError):
+        pass
+
+
 def load_config():
     """加载 config.py；缺失时从 config.example.py 复制并提示。"""
     cfg_path = os.path.join(BASE_DIR, "config.py")
     example_path = os.path.join(BASE_DIR, "config.example.py")
     if not os.path.exists(cfg_path):
         shutil.copyfile(example_path, cfg_path)
+        _chown_to_sudo_user(cfg_path)
         print(f"已生成默认配置 {cfg_path}（源自 config.example.py），可按需修改后重跑。")
         print()
     import importlib.util
@@ -125,13 +137,16 @@ def main() -> int:
         print("将执行以下任务：")
         for t in ordered:
             print(f"  - {t.name}（{t.id}）")
-        try:
-            ans = input("\n确认执行？[y/N] ").strip().lower()
-        except EOFError:
-            ans = ""
-        if ans not in ("y", "yes"):
-            print("已取消。")
-            return 0
+        if sys.stdin.isatty():
+            try:
+                ans = input("\n确认执行？[y/N] ").strip().lower()
+            except EOFError:
+                ans = ""
+            if ans not in ("y", "yes"):
+                print("已取消。")
+                return 0
+        else:
+            print("（非交互终端，自动确认执行；如需静默输出可加 --yes）")
 
     results = runner.run_tasks(tasks, cfg, force=args.force, dry_run=args.dry_run,
                                log_dir=os.path.join(BASE_DIR, "logs"))

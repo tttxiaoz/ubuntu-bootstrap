@@ -67,6 +67,9 @@ def run_one(task, cfg, logger, *, force: bool = False) -> str:
     except utils.TaskError as exc:
         logger(f"❌ {task.name} 失败: {exc}")
         return "fail"
+    except Exception as exc:  # noqa: BLE001 - 兜底，避免单个任务意外异常中断整批
+        logger(f"❌ {task.name} 意外失败: {exc!r}")
+        return "fail"
 
 
 def run_tasks(tasks: list, cfg, *, force: bool = False, dry_run: bool = False,

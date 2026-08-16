@@ -32,7 +32,7 @@ BASE_PACKAGES = [
 OH_MY_ZSH_INSTALL_URL = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 # 主题： "default" | "random" | "powerlevel10k"
 ZSH_THEME = "random"
-ZSH_PLUGINS = ["git", "web-search", "z", "zsh-autosuggestions", "zsh-syntax-highlighting"]
+ZSH_PLUGINS = ["git", "web-search", "z", "fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"]
 ZSH_EXTERNAL_PLUGINS = {
     "zsh-autosuggestions": "https://github.com/zsh-users/zsh-autosuggestions",
     "zsh-syntax-highlighting": "https://github.com/zsh-users/zsh-syntax-highlighting",
@@ -44,6 +44,8 @@ NEOVIM_INSTALL_METHOD = "apt"   # "apt" | "github"
 FZF_INSTALL_METHOD = "apt"      # "apt" | "github"
 
 # ============ SSH ============
+# ⚠️ 安全提示：公网服务器若同时开启「密码认证 + root 直接登录」，有被暴力破解的风险。
+# 更安全的做法是改用密钥登录，并把下面两项设为 "no"。
 SSH_PASSWORD_AUTH = "yes"       # sshd 密码认证
 SSH_PERMIT_ROOT_LOGIN = "yes"   # 允许 root 登录
 

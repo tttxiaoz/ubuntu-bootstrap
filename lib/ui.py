@@ -152,8 +152,9 @@ def _plain_run(tasks, cfg, force, log_dir) -> dict:
         done, note = _status_of(t, cfg)
         default = "n" if done else "y"
         label = "跳过（已配置）" if done else "执行"
+        hint = "[Y/n]" if not done else "[y/N]"
         try:
-            ans = input(f"[{label}] {t.name} — {t.description}  [Y/n] ").strip().lower()
+            ans = input(f"[{label}] {t.name} — {t.description}  {hint} ").strip().lower()
         except EOFError:
             ans = ""
         want = (ans in ("", "y", "yes")) if default == "y" else (ans in ("y", "yes"))

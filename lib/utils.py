@@ -126,15 +126,20 @@ def backup_file(path: str) -> None:
 
 
 def replace_or_append(path: str, pattern: str, replacement: str, fallback: str) -> None:
-    """按行正则替换；若整文件无匹配则在文件末尾追加 fallback 行。"""
+    """按行正则替换；若整文件无匹配则在文件末尾追加 fallback 行。
+
+    若有多行匹配，首处写入 replacement、其余重复行丢弃，避免残留旧值。
+    """
     lines = _read_lines(path)
     regex = re.compile(pattern)
     matched = False
     out = []
     for line in lines:
-        if regex.search(line) and not matched:
-            out.append(replacement)
-            matched = True
+        if regex.search(line):
+            if not matched:
+                out.append(replacement)
+                matched = True
+            # 已写入一次，后续重复匹配行丢弃
         else:
             out.append(line)
     if not matched:

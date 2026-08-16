@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 from .base import Task
 from .. import utils
 
@@ -23,7 +25,9 @@ class NvimTask(Task):
         if not utils.command_exists("nvim"):
             self._install_nvim(cfg, log)
 
-        nvim = utils.run_cmd(["which", "nvim"], capture=True).stdout.strip()
+        nvim = shutil.which("nvim")
+        if not nvim:
+            raise utils.TaskError("安装后仍找不到 nvim 可执行文件")
         # update-alternatives 提升 nvim 优先级
         utils.run_cmd(["update-alternatives", "--install", "/usr/bin/vi", "vi", nvim, "60"], log=log)
         utils.run_cmd(["update-alternatives", "--install", "/usr/bin/vim", "vim", nvim, "60"], log=log)
@@ -37,7 +41,8 @@ class NvimTask(Task):
         method = getattr(cfg, "NEOVIM_INSTALL_METHOD", "apt")
         if method == "github":
             # 拉取最新 release tarball 解压到 /opt/nvim
-            tarball = "nvim-linux-x86_64.tar.gz"
+            arch = utils.detect_arch()
+            tarball = f"nvim-linux-{arch}.tar.gz"
             url = f"https://github.com/neovim/neovim/releases/latest/download/{tarball}"
             utils.run_cmd(["curl", "-fsSL", "-o", f"/tmp/{tarball}", url], log=log)
             utils.run_cmd(["mkdir", "-p", "/opt/nvim"], log=log)

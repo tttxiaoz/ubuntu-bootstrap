@@ -20,14 +20,12 @@ class FzfTask(Task):
     def run(self, cfg, log=None):
         method = getattr(cfg, "FZF_INSTALL_METHOD", "apt")
         if method == "github":
+            home = utils.real_home()
+            dest = f"{home}/.fzf"
             utils.run_cmd(
-                ["git", "clone", "--depth", "1", "https://github.com/junegunn/fzf.git",
-                 f"/home/{utils.real_user()}/.fzf"],
+                ["git", "clone", "--depth", "1", "https://github.com/junegunn/fzf.git", dest],
                 log=log,
             )
-            utils.run_cmd(
-                [f"/home/{utils.real_user()}/.fzf/install", "--all"],
-                log=log,
-            )
+            utils.run_cmd([f"{dest}/install", "--all"], log=log)
         else:
             utils.apt_install(["fzf"], log=log)

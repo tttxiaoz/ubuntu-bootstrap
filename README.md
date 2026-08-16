@@ -38,8 +38,8 @@ cd ubuntu-bootstrap
 | 基础工具 | git / curl / wget / htop / build-essential 等 |
 | neovim | 安装 neovim，并将 vi/vim 指向 nvim |
 | fzf | 安装命令行模糊查找工具 |
-| zsh | zsh + oh-my-zsh + 插件（git / web-search / z / zsh-autosuggestions / zsh-syntax-highlighting）+ 主题（default / random / powerlevel10k） |
-| SSH | openssh-server + 密码认证 + 允许 root 登录 + 放行 22 端口 |
+| zsh | zsh + oh-my-zsh + 插件（git / web-search / z / fzf / zsh-autosuggestions / zsh-syntax-highlighting）+ 主题（default / random / powerlevel10k） |
+| SSH | openssh-server + 按配置设置密码认证 / root 登录 + 放行 22 端口（默认开启密码与 root，见下方安全说明） |
 
 每个任务执行前都会**先检测是否已配置**，已配置的自动跳过（幂等）；菜单中也会实时显示每个任务的当前状态。
 
@@ -113,3 +113,31 @@ gum 不在 Ubuntu 默认 apt 源，**首次运行会自动从 GitHub 下载**到
 - 所有系统配置文件写入前会先备份为 `*.bak`。
 - powerlevel10k 主题会跳过首次交互向导；完整字形显示需要 Nerd Font 终端，可另跑 `p10k configure`。
 - 22.04 仓库的 neovim 版本较旧，如需新版可在 config.py 设 `NEOVIM_INSTALL_METHOD = "github"`。
+
+### 无 TTY 环境（headless）
+
+`./start.sh --all` / `--only` 在无交互终端（如 `ssh host './start.sh --all'`、cloud-init）下会**自动确认执行**，不再因 `input()` 读到 EOF 而静默取消；如需完全静默输出可加 `--yes`。
+
+### SSH 安全建议
+
+SSH 任务默认沿用「密码认证 + 允许 root 登录」（`SSH_PASSWORD_AUTH = "yes"`、`SSH_PERMIT_ROOT_LOGIN = "yes"`），方便新机快速登录，但公网暴露下有被暴力破解的风险。生产环境建议：
+
+- 改用密钥登录，并在 `config.py` 把 `SSH_PASSWORD_AUTH` / `SSH_PERMIT_ROOT_LOGIN` 设为 `"no"`；
+- 或通过 `ufw` 限制来源 IP（脚本默认放行 22 端口）。
+
+当上述任一项保持 `yes` 时，任务执行会打印醒目的安全提醒。
+
+> 实现上，SSH 配置写入 `/etc/ssh/sshd_config.d/99-bootstrap.conf`（高优先级 drop-in），可覆盖 cloud-init 等写入的默认值；状态判定用 `sshd -T` 读取**生效**配置，避免漏判被 drop-in 覆盖的情况。
+
+### 任务幂等性
+
+除「更新系统」外的任务均幂等（已配置自动跳过）。「更新系统」任务无持久状态、每次运行都会执行 `apt-get update + upgrade`（在 `--list` 中恒显示「未配置」属正常）。
+
+## 开发与测试
+
+运行时零第三方依赖；开发测试需要 `pip install pytest ruff`（或 `pip install -e '.[dev]'`）：
+
+```bash
+pytest          # 运行单元测试
+ruff check .    # 静态检查
+```

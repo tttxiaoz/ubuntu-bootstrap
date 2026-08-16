@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import os
-import re
+import shutil
 
 from .base import Task
 from .. import utils
-
-_BUILTIN_PLUGINS = {"git", "web-search", "z", "fzf"}
 
 
 class ZshTask(Task):
@@ -53,9 +51,10 @@ class ZshTask(Task):
         # 写 .zshrc：插件行 + 主题行 + （p10k 时）跳过向导
         self._write_zshrc(cfg, home, theme, log)
 
-        # 改默认 shell
-        if self._current_shell(user) != utils.run_cmd(["which", "zsh"], capture=True).stdout.strip():
-            utils.run_cmd(["chsh", "-s", "$(which zsh)", user], check=False, log=log)
+        # 改默认 shell（用真实路径，避免 shell 字面量不展开）
+        zsh_path = shutil.which("zsh")
+        if zsh_path and self._current_shell(user) != zsh_path:
+            utils.run_cmd(["chsh", "-s", zsh_path, user], log=log)
 
     def _install_external_plugins(self, cfg, home, log) -> None:
         custom = f"{home}/.oh-my-zsh/custom/plugins"

@@ -10,6 +10,22 @@ from .. import utils
 _SOURCES_LIST = "/etc/apt/sources.list"
 _SOURCES_DEB822 = "/etc/apt/sources.list.d/ubuntu.sources"
 
+# 官方归档与安全服务器的 URI 前缀，切换镜像时一并改写（含 https 变体）
+_OFFICIAL_HOSTS = (
+    "http://archive.ubuntu.com/ubuntu",
+    "https://archive.ubuntu.com/ubuntu",
+    "http://security.ubuntu.com/ubuntu",
+    "https://security.ubuntu.com/ubuntu",
+)
+
+
+def _rewrite_deb_uri(line: str, mirror: str) -> str:
+    """把 deb 行的官方归档/安全服务器 URI 替换为镜像，保留组件/仓库等其余字段。"""
+    for host in _OFFICIAL_HOSTS:
+        if host in line:
+            return line.replace(host, mirror)
+    return line
+
 
 def _mirror_base(cfg) -> str:
     name = getattr(cfg, "APT_MIRROR", None)
@@ -24,13 +40,14 @@ def _mirror_base(cfg) -> str:
 
 
 def _has_mirror(cfg) -> bool:
-    """判断源文件是否已指向配置的镜像。"""
+    """判断源文件是否已指向配置的镜像（检查生效的 deb / URIs 行）。"""
     mirror = _mirror_base(cfg)
     for path in (_SOURCES_LIST, _SOURCES_DEB822):
         for line in utils.read_lines(path):
-            if line.lstrip().startswith("#"):
+            stripped = line.lstrip()
+            if not stripped or stripped.startswith("#"):
                 continue
-            if mirror in line:
+            if (stripped.startswith("deb ") or stripped.startswith("URIs:")) and mirror in line:
                 return True
     return False
 
@@ -59,7 +76,7 @@ class AptMirrorTask(Task):
             self._patch_classic(codename, mirror)
 
     def _patch_classic(self, codename: str, mirror: str) -> None:
-        """22.04 经典格式：改写 /etc/apt/sources.list 中 deb 行。"""
+        """22.04 经典格式：改写 /etc/apt/sources.list 中 deb 行的归档/安全服务器地址。"""
         lines = utils.read_lines(_SOURCES_LIST)
         if not lines:
             # 某些镜像默认只有 .list.d 下的源，这里尽量兼容常见归档服务器
@@ -73,12 +90,7 @@ class AptMirrorTask(Task):
         for line in lines:
             stripped = line.lstrip()
             if stripped.startswith("deb ") and "ubuntu.com" in line:
-                # 仅替换归档服务器地址，保留组件/仓库等其余字段
-                out.append(line.replace("http://archive.ubuntu.com/ubuntu",
-                                        mirror).replace("https://archive.ubuntu.com/ubuntu",
-                                                        mirror))
-            elif stripped.startswith("deb ") and mirror in line:
-                out.append(line)  # 已经是镜像，保持
+                out.append(_rewrite_deb_uri(line, mirror))
             else:
                 out.append(line)
         utils.backup_write(_SOURCES_LIST, "\n".join(out) + "\n")
@@ -112,7 +124,7 @@ def _default_deb822(codename: str, mirror: str) -> str:
         "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n"
         "\n"
         "Types: deb\n"
-        f"URIs: http://security.ubuntu.com/ubuntu/\n"
+        f"URIs: {mirror}\n"
         f"Suites: {codename}-security\n"
         "Components: main restricted universe multiverse\n"
         "Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n"

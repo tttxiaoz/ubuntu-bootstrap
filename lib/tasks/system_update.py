@@ -13,8 +13,8 @@ class SystemUpdateTask(Task):
     depends_on = ["apt_mirror"]
 
     def check(self, cfg, log=None):
-        # 无持久状态，每次都可运行
-        return False, "待更新"
+        # 无持久状态，非幂等：每次运行都会执行 update + upgrade
+        return False, "非幂等，每次运行均执行 update + upgrade"
 
     def run(self, cfg, log=None):
         utils.run_cmd(["apt-get", "update"], log=log)
