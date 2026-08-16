@@ -55,7 +55,7 @@ def run_wizard(tasks, cfg, *, force: bool = False, log_dir: str = "logs") -> dic
 
         if gum.ensure_gum(cfg):
             return _gum_run(tasks, cfg, force, log_dir)
-        print("未找到 gum 且下载失败，已降级为文本模式。")
+        # ensure_gum 失败时已打印降级说明
     return _plain_run(tasks, cfg, force, log_dir)
 
 

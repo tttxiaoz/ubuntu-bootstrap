@@ -67,9 +67,7 @@ gum 不在 Ubuntu 默认 apt 源，**首次运行会自动从 GitHub 下载**到
 
 - 若网络较慢或无法访问 GitHub，可自行安装：
   ```bash
-  # 方式一：Homebrew
-  brew install gum
-  # 方式二：直接下载二进制（见 https://github.com/charmbracelet/gum）
+  直接下载二进制（见 https://github.com/charmbracelet/gum）
   ```
 - 若 gum 缺失且下载失败，工具会**自动降级为文本模式**，功能不受影响。
 - 可在 `config.py` 中改 `GUM_DOWNLOAD_BASE` / `GUM_API` 走镜像或代理。
