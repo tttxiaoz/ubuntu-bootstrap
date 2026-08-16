@@ -1,0 +1,9 @@
+# 集成测试用 Ubuntu 24.04 基础镜像。
+# 注意：官方 ubuntu:24.04 镜像为最小版、不含 python3，这里显式安装以模拟真实服务器。
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app

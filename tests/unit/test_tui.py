@@ -72,6 +72,22 @@ def test_print_summary_table_fallback(monkeypatch, capsys):
     assert "zsh" in out and "nvim" in out
 
 
+def test_banner_fallback(monkeypatch, capsys):
+    monkeypatch.setattr(tui, "rich_available", lambda: False)
+    tui.banner("标题")
+    out = capsys.readouterr().out
+    assert "标题" in out
+
+
+def test_task_header_fallback(monkeypatch, capsys):
+    monkeypatch.setattr(tui, "rich_available", lambda: False)
+    tui.task_header(1, 3, "任务名", "描述", "未配置", "备注")
+    out = capsys.readouterr().out
+    assert "任务名" in out
+    assert "未配置" in out
+    assert "备注" in out
+
+
 def test_multiselect_fallback_all_on_enter(monkeypatch):
     monkeypatch.setattr(tui, "questionary_available", lambda: False)
     monkeypatch.setattr("builtins.input", lambda *a, **k: "")

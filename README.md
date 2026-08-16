@@ -144,8 +144,12 @@ tests/              单元测试（unit/）与集成测试（integration/，Dock
 运行时依赖 `rich` / `questionary` 会自动安装（缺失可降级）；开发测试需要 Python 3.11+ 与 `pip install -e '.[dev]'`（含 pytest / ruff / tomli 回退）：
 
 ```bash
-pytest          # 运行单元测试
-ruff check .    # 静态检查
+pytest                      # 运行全部测试（单元 + Docker 集成）
+pytest tests/unit           # 仅单元测试
+pytest tests/integration    # 仅 Docker 集成测试（需 Docker 守护进程）
+ruff check .                # 静态检查
 ```
+
+> 更多约定与「新增任务」模板见 [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)。
 
 > 说明：目标机（Ubuntu 24.04+，Python 3.12+）的 TOML 配置解析走 stdlib `tomllib`；`<3.11` 的开发机会通过 `tomli` 回退（仅开发依赖，目标机不受影响）。

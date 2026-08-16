@@ -81,18 +81,18 @@ class Runner:
         res = task.check(ctx)
         done, note = res.done, res.note
         if done and not ctx.force:
-            ctx.log(f"⏭ 跳过 {task.meta.name}（{note}）", style="yellow")
+            ctx.log.log(f"⏭ 跳过 {task.meta.name}（{note}）", style="yellow")
             return "skip", note
-        ctx.log(f"▶ 执行 {task.meta.name} ...", style="blue")
+        ctx.log.log(f"▶ 执行 {task.meta.name} ...", style="blue")
         try:
             task.run(ctx)
-            ctx.log(f"✅ {task.meta.name} 完成", style="green")
+            ctx.log.log(f"✅ {task.meta.name} 完成", style="green")
             return "ok", ""
         except TaskError as exc:
-            ctx.log(f"❌ {task.meta.name} 失败: {exc}", style="red")
+            ctx.log.log(f"❌ {task.meta.name} 失败: {exc}", style="red")
             return "fail", str(exc)
         except Exception as exc:  # noqa: BLE001 - 兜底，避免单个任务意外异常中断整批
-            ctx.log(f"❌ {task.meta.name} 意外失败: {exc!r}", style="red")
+            ctx.log.log(f"❌ {task.meta.name} 意外失败: {exc!r}", style="red")
             return "fail", repr(exc)
 
 
