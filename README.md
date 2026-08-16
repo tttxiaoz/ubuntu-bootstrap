@@ -5,8 +5,9 @@
 ## 快速开始（新服务器上一键拉取并执行）
 
 ```bash
-# 拉取代码并进入目录
-git clone https://github.com/tttxiaoz/ubuntu-bootstrap.git
+# 拉取代码并进入目录（国内推荐用 Gitee，速度快）
+git clone https://gitee.com/tttxiaoz/ubuntu-bootstrap.git
+# 或 GitHub：git clone https://github.com/tttxiaoz/ubuntu-bootstrap.git
 cd ubuntu-bootstrap
 
 # 一键执行全部任务（推荐）
@@ -17,6 +18,15 @@ cd ubuntu-bootstrap
 ```
 
 > 公开仓库，无需认证，直接 clone 即可。脚本用纯 Python 标准库，Ubuntu 自带 python3，零额外依赖。
+
+## 仓库镜像
+
+| 平台 | 地址 |
+|---|---|
+| GitHub | https://github.com/tttxiaoz/ubuntu-bootstrap |
+| Gitee | https://gitee.com/tttxiaoz/ubuntu-bootstrap |
+
+两处内容一致，国内网络环境下推荐使用 Gitee。
 
 ## 功能
 
