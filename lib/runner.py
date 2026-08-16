@@ -44,8 +44,12 @@ class Logger:
         self.path = os.path.join(log_dir, f"{stamp}.log")
         self._fh = open(self.path, "a", encoding="utf-8")
 
-    def __call__(self, message: str = "") -> None:
-        print(message, flush=True)
+    def __call__(self, message: str = "", style: str | None = None) -> None:
+        # 终端按 style 上色，日志文件始终写纯文本（不含 ANSI 码）
+        if style and sys.stdout.isatty():
+            print(tui.paint(message, style), flush=True)
+        else:
+            print(message, flush=True)
         self._fh.write(message + "\n")
         self._fh.flush()
 
@@ -57,18 +61,18 @@ def run_one(task, cfg, logger, *, force: bool = False) -> str:
     """执行单个任务，返回 "ok" | "skip" | "fail"。"""
     done, note = task.check(cfg, log=None)
     if done and not force:
-        logger(f"⏭ 跳过 {task.name}（{note}）")
+        logger(f"⏭ 跳过 {task.name}（{note}）", style="yellow")
         return "skip"
-    logger(f"▶ 执行 {task.name} ...")
+    logger(f"▶ 执行 {task.name} ...", style="blue")
     try:
         task.run(cfg, log=logger)
-        logger(f"✅ {task.name} 完成")
+        logger(f"✅ {task.name} 完成", style="green")
         return "ok"
     except utils.TaskError as exc:
-        logger(f"❌ {task.name} 失败: {exc}")
+        logger(f"❌ {task.name} 失败: {exc}", style="red")
         return "fail"
     except Exception as exc:  # noqa: BLE001 - 兜底，避免单个任务意外异常中断整批
-        logger(f"❌ {task.name} 意外失败: {exc!r}")
+        logger(f"❌ {task.name} 意外失败: {exc!r}", style="red")
         return "fail"
 
 

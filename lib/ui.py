@@ -91,13 +91,9 @@ def _tui_run(tasks, cfg, force, log_dir) -> dict:
             for q in questions_for_task(cfg, task.id):
                 _ask_question_tui(tui, cfg, q)
 
-            # 3) 执行
-            tui.heading(f"▶ 执行 {task.name} ...")
+            # 3) 执行（「▶ 执行 / ✅ 完成」由 runner.run_one 统一输出，避免重复）
             status = runner.run_one(task, cfg, logger, force=force)
             results[task.id] = status
-
-            mark = {"ok": "✅", "skip": "⏭", "fail": "❌"}.get(status, "?")
-            tui.status_line(mark, task.name, status)
     finally:
         logger.close()
     runner.print_summary(results)

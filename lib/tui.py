@@ -117,6 +117,11 @@ def _paint(text: str, *styles: str) -> str:
     return f"{codes}{text}{_C['reset']}" if codes else text
 
 
+def paint(text: str, *styles: str) -> str:
+    """ANSI 着色（供 runner 等模块复用；终端输出上色、文件仍写纯文本）。"""
+    return _paint(text, *styles)
+
+
 # --------------------------------------------------------------------------
 # 展示原语
 # --------------------------------------------------------------------------
@@ -148,14 +153,6 @@ def task_header(index: int, total: int, name: str, description: str,
         print(_paint(f"  {description}   （当前状态：{status_tag}）", "dim"))
         if note:
             print(_paint(f"  {note}", "dim"))
-
-
-def heading(text: str) -> None:
-    if rich_available():
-        from rich.console import Console
-        Console().print(f"[bold blue]{text}[/bold blue]")
-    else:
-        print(_paint(text, "blue", "bold"))
 
 
 def status_line(mark: str, name: str, kind: str) -> None:
