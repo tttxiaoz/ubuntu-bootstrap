@@ -1,0 +1,5 @@
+config.py
+logs/
+*.bak
+__pycache__/
+*.pyc
