@@ -35,14 +35,14 @@ cd ubuntu-bootstrap
 | 任务 | 说明 |
 |---|---|
 | apt 源切换 | 换国内镜像（默认清华 TUNA，可选「不更改」保持原样），兼容 deb822 `.sources`（24.04+）与经典 `sources.list` |
-| 时区与 locale | 时区 Asia/Shanghai，locale zh_CN.UTF-8 |
 | 系统更新 | `apt-get update && upgrade` |
-| 基础工具 | git / curl / wget / htop / build-essential 等（向导可多选） |
-| neovim | 安装 neovim，并将 vi/vim 指向 nvim |
-| fzf | 安装命令行模糊查找工具 |
-| zsh | zsh + oh-my-zsh + 插件（git / web-search / z / fzf / zsh-autosuggestions / zsh-syntax-highlighting）+ 主题（default / random / powerlevel10k） |
 | 设置用户密码 | 为当前用户（sudo 时真实用户 / root 时 root）设置登录密码，交互式输入、不落盘 |
 | SSH | openssh-server + 按配置设置密码认证 / root 登录 + 重启生效并放行 22 端口（默认开启，见下方安全说明） |
+| 时区与 locale | 时区 Asia/Shanghai，locale zh_CN.UTF-8 |
+| 基础工具 | git / curl / wget / htop / build-essential 等（向导可多选） |
+| fzf | 安装命令行模糊查找工具 |
+| neovim | 安装 neovim，并将 vi/vim 指向 nvim |
+| zsh | zsh + oh-my-zsh + 插件（git / web-search / z / fzf / zsh-autosuggestions / zsh-syntax-highlighting）+ 主题（default / random / powerlevel10k） |
 
 每个任务执行前都会**先检测是否已配置**，已配置的自动跳过（幂等）；菜单中也会实时显示每个任务的当前状态。
 

@@ -6,13 +6,13 @@
 # isort: off
 from . import (  # noqa: F401
     apt_mirror,
-    locale_timezone,
     system_update,
-    base_tools,
-    nvim,
-    fzf,
-    zsh,
     set_password,
     ssh,
+    locale_timezone,
+    base_tools,
+    fzf,
+    nvim,
+    zsh,
 )
 # isort: on
