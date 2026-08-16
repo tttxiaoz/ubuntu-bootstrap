@@ -1,6 +1,6 @@
 # Ubuntu 新机初始化工具
 
-一键/按需配置新装 Ubuntu 服务器的基础环境。纯 Python 标准库实现，零 pip 依赖，Ubuntu 22.04 / 24.04 / 26.04 均自带 python3 可直接运行。
+一键/按需配置新装 Ubuntu 服务器的基础环境。核心用 Python 标准库实现，交互界面依赖（rich / questionary）在首次运行时自动通过 pip 准备（失败自动降级纯文本），Ubuntu 22.04 / 24.04 / 26.04 均自带 python3 可直接运行。
 
 ## 快速开始（新服务器上一键拉取并执行）
 
@@ -17,7 +17,7 @@ cd ubuntu-bootstrap
 ./start.sh
 ```
 
-> 公开仓库，无需认证，直接 clone 即可。脚本用纯 Python 标准库，Ubuntu 自带 python3，零额外依赖。
+> 公开仓库，无需认证，直接 clone 即可。核心用 Python 标准库，Ubuntu 自带 python3；交互 UI 依赖会在首次运行时自动 pip 安装，无需手动操作。
 
 ## 仓库镜像
 
@@ -66,21 +66,18 @@ cd ubuntu-bootstrap
 ### 向导操作说明
 
 - 向导**逐步执行**：确认一个任务 →（可选）选择该任务的配置项 → 立即执行 → 进入下一个任务。
-- 界面由 **gum（Charmbracelet）** 驱动，提供彩色标题、单选/确认框、圆角边框。
-- 有配置项的任务（如镜像源、时区、zsh 主题、SSH 开关）会在执行前用 `gum choose` / `gum confirm` 选择。
+- 界面由 **rich + questionary** 驱动，提供彩色标题、面板、单选/确认框。
+- 有配置项的任务（如镜像源、时区、zsh 主题、SSH 开关）会在执行前用方向键单选 / 确认框选择。
 - 已配置的任务默认「跳过」，未配置的默认「执行」。
 - 执行时命令输出（如 apt 进度）会实时显示在终端。
 
-### 关于 gum
+### 关于交互 UI 依赖
 
-gum 不在 Ubuntu 默认 apt 源，**首次运行会自动从 GitHub 下载**到 `/usr/local/bin/gum`（约 5MB 单二进制）。
+向导界面依赖 `rich` + `questionary`（纯 Python 库）。**首次运行会自动用 pip 安装**到系统 Python；Ubuntu 24.04 的 PEP 668 限制会自动处理。
 
-- 若网络较慢或无法访问 GitHub，可自行安装：
-  ```bash
-  直接下载二进制（见 https://github.com/charmbracelet/gum）
-  ```
-- 若 gum 缺失且下载失败，工具会**自动降级为文本模式**，功能不受影响。
-- 可在 `config.py` 中改 `GUM_DOWNLOAD_BASE` / `GUM_API` 走镜像或代理。
+- 国内网络慢可在 `config.py` 里把 `PIP_INDEX_URL` 改为清华/阿里 pip 镜像（默认已是清华）。
+- 若 pip 安装失败，工具会**自动降级为 ANSI 彩色纯文本模式**，功能不受影响。
+- 也可提前手动安装：`pip install rich questionary`（Ubuntu 24.04 需加 `--break-system-packages`）。
 
 ### 可交互配置项
 
@@ -104,6 +101,7 @@ gum 不在 Ubuntu 默认 apt 源，**首次运行会自动从 GitHub 下载**到
 - `ZSH_PLUGINS`：插件列表
 - `NEOVIM_INSTALL_METHOD` / `FZF_INSTALL_METHOD`：`apt` 或 `github`
 - `SSH_PASSWORD_AUTH` / `SSH_PERMIT_ROOT_LOGIN`：SSH 开关
+- `PIP_INDEX_URL` / `TUI_PACKAGES`：交互 UI 依赖的 pip 源与包列表
 - `QUESTIONS`：向导交互项定义（可设 `interactive=False` 关闭单项交互）
 
 ## 说明
@@ -135,7 +133,7 @@ SSH 任务默认沿用「密码认证 + 允许 root 登录」（`SSH_PASSWORD_AU
 
 ## 开发与测试
 
-运行时零第三方依赖；开发测试需要 `pip install pytest ruff`（或 `pip install -e '.[dev]'`）：
+运行时依赖 `rich` / `questionary` 会自动安装（缺失可降级）；开发测试需要 `pip install pytest ruff`（或 `pip install -e '.[dev]'`）：
 
 ```bash
 pytest          # 运行单元测试

@@ -9,6 +9,10 @@ dev = [
     "pytest>=7.0",
     "ruff>=0.4",
 ]
+tui = [
+    "rich",
+    "questionary",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

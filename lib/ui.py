@@ -1,7 +1,8 @@
 """交互式逐步执行向导。
 
-流程：逐个任务确认 →（可选）用 gum 选择该任务的配置项 → 立即执行 → 下一项。
-优先使用 gum（Charmbracelet）提供漂亮 TUI；gum 缺失或无 TTY 时降级为纯文本逐项询问。
+流程：逐个任务确认 →（可选）选择该任务的配置项 → 立即执行 → 下一项。
+优先使用 rich（彩色展示）+ questionary（交互选择）提供漂亮 TUI；
+依赖缺失或无 TTY 时逐级降级为 ANSI 纯文本逐项询问。
 """
 
 from __future__ import annotations
@@ -48,91 +49,72 @@ def _status_of(task, cfg):
 def run_wizard(tasks, cfg, *, force: bool = False, log_dir: str = "logs") -> dict:
     """逐步执行向导，返回 {task.id: status}。
 
-    优先使用 gum（Charmbracelet）提供漂亮 TUI；gum 缺失或无 TTY 时降级文本模式。
+    TTY 下优先用 rich + questionary 提供漂亮 TUI（缺失自动 pip 安装、逐级降级）；
+    无 TTY 时降级为纯文本逐项询问。
     """
     if sys.stdout.isatty() and sys.stdin.isatty():
-        from . import gum
+        from . import tui
 
-        if gum.ensure_gum(cfg):
-            return _gum_run(tasks, cfg, force, log_dir)
-        # ensure_gum 失败时已打印降级说明
+        tui.ensure_deps(cfg)
+        return _tui_run(tasks, cfg, force, log_dir)
     return _plain_run(tasks, cfg, force, log_dir)
 
 
 # --------------------------------------------------------------------------
-# gum 向导
+# rich + questionary 向导（内部逐级降级）
 # --------------------------------------------------------------------------
 
-def _gum_run(tasks, cfg, force, log_dir) -> dict:
-    from . import gum, runner
+def _tui_run(tasks, cfg, force, log_dir) -> dict:
+    from . import runner, tui
 
     logger = runner.Logger(log_dir)
     ordered = runner.topo_sort(tasks)
     results: dict = {}
     try:
-        _banner(gum)
+        tui.banner("Ubuntu 新机初始化工具")
 
         for i, task in enumerate(ordered):
             done, note = _status_of(task, cfg)
 
             # 1) 任务确认（默认：未配置执行，已配置跳过）
             status_tag = "已配置" if done else "未配置"
-            gum.style(
-                f"\n[{i + 1}/{len(ordered)}] {task.name}",
-                foreground="212", bold=True,
-            )
-            gum.style(f"  {task.description}   （当前状态：{status_tag}）",
-                      foreground="240")
-            if note:
-                gum.style(f"  {note}", foreground="244")
+            tui.task_header(i + 1, len(ordered), task.name,
+                            task.description, status_tag, note)
 
-            want = gum.confirm(
-                f"{task.name} —— 是否执行？",
-                default=not done,
-            )
+            want = tui.confirm(f"{task.name} —— 是否执行？", default=not done)
             if not want:
                 results[task.id] = "skip"
-                gum.style("  ⏭ 已跳过", foreground="214")
+                tui.status_line("⏭", task.name, "skip")
                 continue
 
             # 2) 配置项
             for q in questions_for_task(cfg, task.id):
-                _ask_question(gum, cfg, q)
+                _ask_question_tui(tui, cfg, q)
 
             # 3) 执行
-            gum.style(f"\n▶ 执行 {task.name} ...", foreground="39", bold=True)
+            tui.heading(f"▶ 执行 {task.name} ...")
             status = runner.run_one(task, cfg, logger, force=force)
             results[task.id] = status
 
-            color = {"ok": "40", "skip": "214", "fail": "196"}.get(status, "250")
             mark = {"ok": "✅", "skip": "⏭", "fail": "❌"}.get(status, "?")
-            gum.style(f"{mark} {task.name}", foreground=color, bold=True)
+            tui.status_line(mark, task.name, status)
     finally:
         logger.close()
     runner.print_summary(results)
     return results
 
 
-def _banner(gum) -> None:
-    gum.style(
-        "\n  Ubuntu 新机初始化工具  ",
-        foreground="51", bold=True, padding="1 2", border="rounded",
-        border_foreground="51",
-    )
-
-
-def _ask_question(gum, cfg, q) -> None:
+def _ask_question_tui(tui, cfg, q) -> None:
     key = q["config_key"]
     if q["type"] == "choice":
         opts = resolve_options(cfg, q)
         cur = getattr(cfg, key, None)
-        value = gum.choose(opts, header=f"{q['name']}（当前：{cur}）",
-                           selected=cur, limit=1)
+        value = tui.choose(opts, header=f"{q['name']}（当前：{cur}）", selected=cur)
         if value is not None:
             setattr(cfg, key, value)
     else:  # bool
         cur = getattr(cfg, key, "yes") == "yes"
-        value = gum.confirm(f"{q['name']}？", default=cur)
+        value = tui.confirm(f"{q['name']}？", default=cur)
         setattr(cfg, key, "yes" if value else "no")
 
 

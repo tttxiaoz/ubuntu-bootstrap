@@ -71,7 +71,7 @@ def detect_codename() -> str:
 
 
 def detect_arch() -> str:
-    """返回 gum 等二进制发布用的架构名：x86_64 | arm64。"""
+    """返回第三方二进制发布（如 neovim tarball）用的架构名：x86_64 | arm64。"""
     machine = platform.machine().lower()
     if machine in ("x86_64", "amd64"):
         return "x86_64"

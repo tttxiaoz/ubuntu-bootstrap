@@ -6,7 +6,7 @@ import datetime
 import os
 import sys
 
-from . import utils
+from . import tui, utils
 from .tasks import REGISTRY
 
 
@@ -92,13 +92,19 @@ def run_tasks(tasks: list, cfg, *, force: bool = False, dry_run: bool = False,
 
 def print_summary(results: dict) -> None:
     by_id = {t.id: t for t in REGISTRY}
-    print("\n========== 执行结果 ==========")
+    rows = []
     for tid, status in results.items():
         name = by_id.get(tid, None)
         name = name.name if name else tid
         mark = {"ok": "✅", "skip": "⏭", "fail": "❌"}.get(status, "?")
-        print(f"{mark} {name}")
+        rows.append((name, mark))
+    tui.print_summary_table(rows)
     ok = sum(1 for s in results.values() if s == "ok")
     skip = sum(1 for s in results.values() if s == "skip")
     fail = sum(1 for s in results.values() if s == "fail")
-    print(f"\n成功 {ok} · 跳过 {skip} · 失败 {fail}")
+    summary = f"\n成功 {ok} · 跳过 {skip} · 失败 {fail}"
+    if tui.rich_available():
+        from rich.console import Console
+        Console().print(summary)
+    else:
+        print(summary)

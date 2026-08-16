@@ -49,11 +49,12 @@ FZF_INSTALL_METHOD = "apt"      # "apt" | "github"
 SSH_PASSWORD_AUTH = "yes"       # sshd 密码认证
 SSH_PERMIT_ROOT_LOGIN = "yes"   # 允许 root 登录
 
-# ============ gum（交互 UI） ============
-# gum 不在 Ubuntu 默认 apt 源，首次运行会自动从 GitHub 下载到 /usr/local/bin/gum。
-# 国内网络较慢时，可自行安装（见 README）或改走镜像/代理。
-GUM_DOWNLOAD_BASE = "https://github.com/charmbracelet/gum/releases/download"
-GUM_API = "https://api.github.com/repos/charmbracelet/gum/releases/latest"
+# ============ 交互 UI（rich + questionary） ============
+# 向导界面由 rich（彩色展示）+ questionary（单选/确认）驱动。
+# 首次运行若缺失会通过 pip 自动安装；失败自动降级为 ANSI 彩色纯文本，功能不受影响。
+# 国内可将 PIP_INDEX_URL 改为清华/阿里 pip 镜像加速。
+PIP_INDEX_URL = "https://pypi.tuna.tsinghua.edu.cn/simple"
+TUI_PACKAGES = ["rich", "questionary"]
 
 
 # ============ 向导交互项 ============
