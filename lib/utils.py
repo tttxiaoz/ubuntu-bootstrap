@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -67,6 +68,16 @@ def detect_codename() -> str:
         if line.startswith("VERSION_CODENAME="):
             return line.split("=", 1)[1].strip().strip('"').strip("'")
     raise TaskError("无法检测系统版本代号（VERSION_CODENAME）")
+
+
+def detect_arch() -> str:
+    """返回 gum 等二进制发布用的架构名：x86_64 | arm64。"""
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        return "x86_64"
+    if machine in ("aarch64", "arm64"):
+        return "arm64"
+    return machine
 
 
 def real_user() -> str:

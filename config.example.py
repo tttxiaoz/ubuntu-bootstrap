@@ -47,6 +47,12 @@ FZF_INSTALL_METHOD = "apt"      # "apt" | "github"
 SSH_PASSWORD_AUTH = "yes"       # sshd 密码认证
 SSH_PERMIT_ROOT_LOGIN = "yes"   # 允许 root 登录
 
+# ============ gum（交互 UI） ============
+# gum 不在 Ubuntu 默认 apt 源，首次运行会自动从 GitHub 下载到 /usr/local/bin/gum。
+# 国内网络较慢时，可自行安装（见 README）或改走镜像/代理。
+GUM_DOWNLOAD_BASE = "https://github.com/charmbracelet/gum/releases/download"
+GUM_API = "https://api.github.com/repos/charmbracelet/gum/releases/latest"
+
 
 # ============ 向导交互项 ============
 # 每一项描述向导中的一个交互配置。
