@@ -10,10 +10,10 @@ git clone https://github.com/tttxiaoz/ubuntu-bootstrap.git
 cd ubuntu-bootstrap
 
 # 一键执行全部任务（推荐）
-sudo python3 init.py --all
+./start.sh --all
 
-# 或交互式菜单按需选择
-sudo python3 init.py
+# 或交互式向导按需选择
+./start.sh
 ```
 
 > 公开仓库，无需认证，直接 clone 即可。脚本用纯 Python 标准库，Ubuntu 自带 python3，零额外依赖。
@@ -37,25 +37,21 @@ sudo python3 init.py
 
 先按上方「快速开始」拉取代码并进入目录，然后：
 
+### 启动脚本 start.sh
+
 ```bash
-# 交互式向导（推荐）：逐项展示配置项，启用/跳过，最后汇总确认
-sudo python3 init.py
-
-# 一键全部
-sudo python3 init.py --all
-
-# 仅执行部分任务（id 见 --list）
-sudo python3 init.py --only zsh,nvim
-
-# 查看任务及当前状态
-sudo python3 init.py --list
-
-# 预览执行顺序，不实际执行
-sudo python3 init.py --dry-run --all
-
-# 强制重跑（忽略幂等判断）
-sudo python3 init.py --force --all
+./start.sh                  # 交互式向导（推荐）
+./start.sh --all            # 一键执行全部任务
+./start.sh --only zsh,nvim  # 仅执行指定任务（id 见 --list）
+./start.sh --list           # 查看任务及当前状态
+./start.sh --dry-run --all  # 预览执行顺序，不实际执行
+./start.sh --force --all    # 强制重跑（忽略幂等判断）
+./start.sh --help           # 显示帮助
 ```
+
+`start.sh` 只是 `init.py` 的便捷入口：定位脚本目录、检查 python3、透传参数。权限提升仍由 `init.py` 自动完成（非 root 时通过 sudo 重新执行自身），所以无需手动加 `sudo`。
+
+也可以直接运行 `python3 init.py ...`，两者等价。
 
 ### 向导操作说明
 
