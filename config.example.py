@@ -1,19 +1,25 @@
 """Ubuntu 初始化工具配置。
 
 首次运行 init.py 时，若不存在 config.py 会从 config.example.py 复制生成。
-本文件由用户按需修改。
+本文件由用户按需修改。向导中可交互的配置项见下方 QUESTIONS。
 """
 
 # ============ apt 源 ============
-# 镜像地址模板，{codename} 会被替换为 jammy/noble/resolute
-# 国内可选：
-#   清华  https://mirrors.tuna.tsinghua.edu.cn/ubuntu/
-#   阿里  https://mirrors.aliyun.com/ubuntu/
-#   中科大 https://mirrors.ustc.edu.cn/ubuntu/
-APT_MIRROR_URL = "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/"
+# 可选镜像源（向导中单选，字典键为显示名，值为镜像地址）
+# 镜像地址含 {codename} 占位符，会被替换为 jammy/noble/resolute
+APT_MIRRORS = {
+    "清华 TUNA": "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/",
+    "阿里云": "https://mirrors.aliyun.com/ubuntu/",
+    "中科大": "https://mirrors.ustc.edu.cn/ubuntu/",
+    "华为云": "https://repo.huaweicloud.com/ubuntu/",
+}
+# 当前选中的镜像名（对应 APT_MIRRORS 的键）
+APT_MIRROR = "清华 TUNA"
 
 # ============ 系统 ============
+TIMEZONES = ["Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "UTC"]
 TIMEZONE = "Asia/Shanghai"
+LOCALES = ["zh_CN.UTF-8", "en_US.UTF-8"]
 LOCALE = "zh_CN.UTF-8"
 
 # ============ 基础工具 ============
@@ -40,3 +46,38 @@ FZF_INSTALL_METHOD = "apt"      # "apt" | "github"
 # ============ SSH ============
 SSH_PASSWORD_AUTH = "yes"       # sshd 密码认证
 SSH_PERMIT_ROOT_LOGIN = "yes"   # 允许 root 登录
+
+
+# ============ 向导交互项 ============
+# 每一项描述向导中的一个交互配置。
+#   id          唯一标识
+#   name        向导中显示的标题
+#   type        "choice"（单选）| "bool"（是/否，写 "yes"/"no"）
+#   options     候选：以 "@" 开头表示引用上方同名变量（dict 取 keys 保序，list 直接取）；否则为静态列表
+#   config_key  选中的值写回 config 的同名属性
+#   task        关联的任务 id（向导到达该任务时展示此配置项）
+#   interactive 设为 False 时向导跳过该项、直接用 config 中的值
+QUESTIONS = [
+    {"id": "apt_mirror", "name": "apt 镜像源", "type": "choice",
+     "options": "@APT_MIRRORS", "config_key": "APT_MIRROR",
+     "task": "apt_mirror", "interactive": True},
+    {"id": "timezone", "name": "时区", "type": "choice",
+     "options": "@TIMEZONES", "config_key": "TIMEZONE",
+     "task": "locale_timezone", "interactive": True},
+    {"id": "locale", "name": "系统语言", "type": "choice",
+     "options": "@LOCALES", "config_key": "LOCALE",
+     "task": "locale_timezone", "interactive": True},
+    {"id": "zsh_theme", "name": "zsh 主题", "type": "choice",
+     "options": ["default", "random", "powerlevel10k"],
+     "config_key": "ZSH_THEME", "task": "zsh", "interactive": True},
+    {"id": "nvim_method", "name": "neovim 安装方式", "type": "choice",
+     "options": ["apt", "github"], "config_key": "NEOVIM_INSTALL_METHOD",
+     "task": "nvim", "interactive": True},
+    {"id": "fzf_method", "name": "fzf 安装方式", "type": "choice",
+     "options": ["apt", "github"], "config_key": "FZF_INSTALL_METHOD",
+     "task": "fzf", "interactive": True},
+    {"id": "ssh_password", "name": "SSH 密码认证", "type": "bool",
+     "config_key": "SSH_PASSWORD_AUTH", "task": "ssh", "interactive": True},
+    {"id": "ssh_root", "name": "允许 root 登录", "type": "bool",
+     "config_key": "SSH_PERMIT_ROOT_LOGIN", "task": "ssh", "interactive": True},
+]

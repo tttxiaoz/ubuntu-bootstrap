@@ -45,6 +45,15 @@ def load_config():
     spec = importlib.util.spec_from_file_location("config", cfg_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
+    # 从 example 补齐缺失的常量（兼容旧 config.py，保留用户已改的值）
+    example_spec = importlib.util.spec_from_file_location("_config_example", example_path)
+    example = importlib.util.module_from_spec(example_spec)
+    example_spec.loader.exec_module(example)
+    for key in dir(example):
+        if key.isupper() and not hasattr(module, key):
+            setattr(module, key, getattr(example, key))
+
     return module
 
 
@@ -54,10 +63,15 @@ def list_tasks(cfg) -> None:
         done, note = t.check(cfg, log=None)
         status = "已配置" if done else "未配置"
         print(f"  {t.id:16} [{status}] {t.name} — {note}")
+        # 打印该任务的交互配置项当前值
+        qs = ui.questions_for_task(cfg, t.id)
+        for q in qs:
+            cur = getattr(cfg, q["config_key"], None)
+            print(f"      · {q['name']} = {cur}")
 
 
 def select_tasks_from_args(args, cfg):
-    """返回 (tasks, interactive)。interactive=True 表示走了向导（已内含确认）。"""
+    """返回 (tasks, interactive)。interactive=True 表示走逐步向导。"""
     if args.all:
         return list(REGISTRY), False
     if args.only:
@@ -67,7 +81,7 @@ def select_tasks_from_args(args, cfg):
             print(f"未知任务 id: {', '.join(unknown)}")
             sys.exit(1)
         return [TASKS[i] for i in ids], False
-    return ui.select_tasks(REGISTRY, cfg), True
+    return list(REGISTRY), True
 
 
 def main() -> int:
@@ -94,12 +108,19 @@ def main() -> int:
         return 0
 
     tasks, interactive = select_tasks_from_args(args, cfg)
+
+    if interactive:
+        # 逐步执行向导（内含执行与确认）
+        ui.run_wizard(tasks, cfg, force=args.force,
+                      log_dir=os.path.join(BASE_DIR, "logs"))
+        return 0
+
     if not tasks:
         print("未选择任何任务，退出。")
         return 0
 
-    # 命令行参数（--all/--only）没有向导确认，这里打印清单并二次确认
-    if not interactive and not args.dry_run and not args.yes:
+    # 命令行参数（--all/--only）批量执行，这里打印清单并二次确认
+    if not args.dry_run and not args.yes:
         ordered = runner.topo_sort(tasks)
         print("将执行以下任务：")
         for t in ordered:

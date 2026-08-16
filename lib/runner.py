@@ -53,6 +53,22 @@ class Logger:
         self._fh.close()
 
 
+def run_one(task, cfg, logger, *, force: bool = False) -> str:
+    """执行单个任务，返回 "ok" | "skip" | "fail"。"""
+    done, note = task.check(cfg, log=None)
+    if done and not force:
+        logger(f"⏭ 跳过 {task.name}（{note}）")
+        return "skip"
+    logger(f"▶ 执行 {task.name} ...")
+    try:
+        task.run(cfg, log=logger)
+        logger(f"✅ {task.name} 完成")
+        return "ok"
+    except utils.TaskError as exc:
+        logger(f"❌ {task.name} 失败: {exc}")
+        return "fail"
+
+
 def run_tasks(tasks: list, cfg, *, force: bool = False, dry_run: bool = False,
               log_dir: str = "logs") -> dict:
     """执行选中任务，返回 {task.id: status}。"""
@@ -65,21 +81,7 @@ def run_tasks(tasks: list, cfg, *, force: bool = False, dry_run: bool = False,
                 done, note = task.check(cfg, log=None)
                 logger(f"[DRY-RUN] {task.id}: {'已配置' if done else '待执行'}（{note}）")
                 continue
-
-            done, note = task.check(cfg, log=None)
-            if done and not force:
-                logger(f"⏭ 跳过 {task.name}（{note}）")
-                results[task.id] = "skip"
-                continue
-
-            logger(f"▶ 执行 {task.name} ...")
-            try:
-                task.run(cfg, log=logger)
-                results[task.id] = "ok"
-                logger(f"✅ {task.name} 完成")
-            except utils.TaskError as exc:
-                results[task.id] = "fail"
-                logger(f"❌ {task.name} 失败: {exc}")
+            results[task.id] = run_one(task, cfg, logger, force=force)
     finally:
         logger.close()
     return results

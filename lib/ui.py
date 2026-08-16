@@ -1,4 +1,7 @@
-"""交互式向导：curses 逐步展示每个配置项，启用/跳过 + 最后汇总确认。
+"""交互式逐步执行向导。
+
+流程：逐个任务展示卡片 → 选择执行/跳过 →（可选）选择该任务的配置项 → 立即执行 → 下一项。
+执行时临时退出 curses，把命令输出流式打印到终端，完成后再回到界面。
 
 无 TTY 时降级为纯文本逐项询问。
 """
@@ -8,8 +11,31 @@ from __future__ import annotations
 import sys
 
 
+# --------------------------------------------------------------------------
+# QUESTIONS 解析（模块级，便于单测）
+# --------------------------------------------------------------------------
+
+def questions_for_task(cfg, task_id: str) -> list:
+    """返回某任务关联的、interactive 开启的配置项。"""
+    qs = getattr(cfg, "QUESTIONS", []) or []
+    return [q for q in qs
+            if q.get("task") == task_id and q.get("interactive", True)]
+
+
+def resolve_options(cfg, q: dict) -> list:
+    """解析 question 的候选列表（支持 '@' 引用 config 变量）。"""
+    opts = q.get("options", [])
+    if isinstance(opts, str) and opts.startswith("@"):
+        val = getattr(cfg, opts[1:], None)
+        if isinstance(val, dict):
+            return list(val.keys())
+        if isinstance(val, (list, tuple)):
+            return list(val)
+        return []
+    return list(opts)
+
+
 def _status_of(task, cfg):
-    """返回任务的 (已配置, 说明)。"""
     try:
         done, note = task.check(cfg, log=None)
     except Exception:
@@ -17,209 +43,391 @@ def _status_of(task, cfg):
     return done, note
 
 
-def select_tasks(tasks, cfg) -> list:
-    """运行向导，返回用户最终选中的任务列表；取消返回空列表。
+# --------------------------------------------------------------------------
+# 入口
+# --------------------------------------------------------------------------
 
-    向导内部已包含最后的汇总确认，调用方无需再次确认。
-    """
+def run_wizard(tasks, cfg, *, force: bool = False, log_dir: str = "logs") -> dict:
+    """逐步执行向导，返回 {task.id: status}。"""
     if sys.stdout.isatty() and sys.stdin.isatty():
         try:
-            return _wizard_select(tasks, cfg)
+            return _wizard_run(tasks, cfg, force, log_dir)
         except Exception:
+            # curses 失败降级
             pass
-    return _plain_select(tasks, cfg)
+    return _plain_run(tasks, cfg, force, log_dir)
 
 
 # --------------------------------------------------------------------------
 # curses 向导
 # --------------------------------------------------------------------------
 
-def _wizard_select(tasks, cfg) -> list:
+def _wizard_run(tasks, cfg, force, log_dir) -> dict:
     import curses
 
-    return curses.wrapper(_Wizard(tasks, cfg).run)
+    from . import runner
+
+    logger = runner.Logger(log_dir)
+    wizard = _Wizard(tasks, cfg, logger, force)
+    try:
+        results = curses.wrapper(wizard.run)
+    finally:
+        logger.close()
+    runner.print_summary(results)
+    return results
 
 
 class _Wizard:
-    """逐步向导：一屏一个任务，最后汇总确认。"""
+    def __init__(self, tasks, cfg, logger, force):
+        from . import runner
 
-    def __init__(self, tasks, cfg):
-        self.tasks = tasks
+        self.tasks = runner.topo_sort(tasks)
         self.cfg = cfg
-        # 预计算状态，避免每帧重复跑 check
-        self.statuses = [_status_of(t, cfg) for t in tasks]
-        # 默认：已配置的跳过，未配置的启用
-        self.enabled = [not done for done, _ in self.statuses]
-        self.index = 0
-        self.stage = "task"  # "task" | "review"
+        self.logger = logger
+        self.force = force
+        self.stdscr = None
+        self.results: dict = {}
+        self.task_index = 0
+
+        # 预计算各任务状态（用于显示与默认选择）
+        self.statuses = [_status_of(t, cfg) for t in self.tasks]
+
+        # 当前任务交互状态
+        self.enabled = False
+        self.qs = []
+        self.q_meta = []
+        self.qidx = 0
+        self.qs_active = False
+
         self._colors = False
 
-    # ---- 主循环 ----
+    # ---- 主流程 ----
 
-    def run(self, stdscr) -> list:
+    def run(self, stdscr) -> dict:
+        import curses
+
+        self.stdscr = stdscr
         curses.curs_set(0)
         self._init_colors()
+
+        while self.task_index < len(self.tasks):
+            task = self.tasks[self.task_index]
+            done, _note = self.statuses[self.task_index]
+            self.enabled = not done  # 默认：未配置的执行，已配置的跳过
+            self.qs = questions_for_task(self.cfg, task.id)
+            self._build_q_meta()
+            self.qidx = 0
+            self.qs_active = False
+
+            action = self._interact()
+            if action == "quit":
+                break
+            if action == "skip":
+                self.results[task.id] = "skip"
+                self.task_index += 1
+                continue
+
+            # 执行：临时退出 curses，流式输出
+            self._suspend()
+            from . import runner
+
+            status = runner.run_one(task, self.cfg, self.logger, force=self.force)
+            self.results[task.id] = status
+            print()
+            try:
+                input("按回车继续...")
+            except EOFError:
+                pass
+            self._resume()
+            self.task_index += 1
+
+        return self.results
+
+    # ---- 交互循环 ----
+
+    def _interact(self) -> str:
+        """任务卡片 + 配置项子界面的 curses 循环，返回 "run" | "skip" | "quit"。"""
+        import curses
+
         while True:
-            self._draw(stdscr)
-            key = stdscr.getch()
+            self._draw()
+            key = self.stdscr.getch()
             if key == curses.KEY_RESIZE:
                 continue
 
-            n = len(self.tasks)
-            if self.stage == "task":
-                if key in (curses.KEY_RIGHT, ord("l"), ord(" "), ord("x")):
-                    self.enabled[self.index] = not self.enabled[self.index]
-                elif key in (curses.KEY_LEFT, ord("h")):
-                    self.enabled[self.index] = not self.enabled[self.index]
-                elif key in (curses.KEY_DOWN, ord("j"), curses.KEY_ENTER, 10, 13):
-                    if self.index < n - 1:
-                        self.index += 1
-                    else:
-                        self.stage = "review"
-                elif key in (curses.KEY_UP, ord("k"), ord("b")):
-                    if self.index > 0:
-                        self.index -= 1
-                elif key in (ord("a"),):
-                    self.enabled = [True] * n
-                elif key in (ord("n"),):
-                    self.enabled = [False] * n
-                elif key in (ord("q"), 27):
-                    return []
+            if self.qs_active and self.qs:
+                r = self._handle_question_key(key)
+                if r == "run":
+                    self._apply_answers()
+                    return "run"
+                if r == "back":
+                    self.qs_active = False
+                    continue
+                if r == "quit":
+                    return "quit"
+                continue
 
-            elif self.stage == "review":
-                if key in (curses.KEY_ENTER, 10, 13):
-                    return [t for t, e in zip(self.tasks, self.enabled) if e]
-                elif key in (ord("b"), curses.KEY_LEFT, ord("h"), curses.KEY_UP, ord("k")):
-                    self.stage = "task"
-                    self.index = n - 1
-                elif key in (ord("q"), 27):
-                    return []
+            # 任务卡片阶段
+            if key in (curses.KEY_RIGHT, curses.KEY_LEFT, ord(" "), ord("x")):
+                self.enabled = not self.enabled
+            elif key in (curses.KEY_ENTER, 10, 13):
+                if not self.enabled:
+                    return "skip"
+                if self.qs:
+                    self.qs_active = True
+                    self.qidx = 0
+                else:
+                    return "run"
+            elif key in (ord("q"), 27):
+                return "quit"
+        return "quit"
 
-    # ---- 颜色 ----
+    def _handle_question_key(self, key) -> str | None:
+        import curses
+
+        meta = self.q_meta[self.qidx]
+        q = meta["q"]
+        if q["type"] == "choice":
+            if key in (curses.KEY_DOWN, ord("j")):
+                meta["cursor"] = (meta["cursor"] + 1) % len(meta["options"])
+            elif key in (curses.KEY_UP, ord("k")):
+                meta["cursor"] = (meta["cursor"] - 1) % len(meta["options"])
+            elif key in (curses.KEY_ENTER, 10, 13):
+                return self._advance_question()
+            elif key in (ord("b"), 27):
+                return "back"
+            elif key in (ord("q"),):
+                return "quit"
+        else:  # bool
+            if key in (curses.KEY_RIGHT, curses.KEY_LEFT, ord(" "), ord("x")):
+                meta["bool_val"] = not meta["bool_val"]
+            elif key in (curses.KEY_ENTER, 10, 13):
+                return self._advance_question()
+            elif key in (ord("b"), 27):
+                return "back"
+            elif key in (ord("q"),):
+                return "quit"
+        return None
+
+    def _advance_question(self) -> str | None:
+        if self.qidx < len(self.q_meta) - 1:
+            self.qidx += 1
+            return None
+        return "run"
+
+    # ---- 配置项 ----
+
+    def _build_q_meta(self):
+        self.q_meta = []
+        for q in self.qs:
+            opts = resolve_options(self.cfg, q)
+            meta = {"q": q, "options": opts}
+            if q["type"] == "choice":
+                cur = getattr(self.cfg, q["config_key"], None)
+                meta["cursor"] = opts.index(cur) if cur in opts else 0
+            else:
+                meta["bool_val"] = getattr(self.cfg, q["config_key"], "yes") == "yes"
+            self.q_meta.append(meta)
+
+    def _apply_answers(self):
+        for meta in self.q_meta:
+            q = meta["q"]
+            if q["type"] == "bool":
+                setattr(self.cfg, q["config_key"], "yes" if meta["bool_val"] else "no")
+            else:
+                setattr(self.cfg, q["config_key"], meta["options"][meta["cursor"]])
+
+    # ---- curses 生命周期 ----
+
+    def _suspend(self):
+        import curses
+
+        curses.endwin()
+
+    def _resume(self):
+        import curses
+
+        self.stdscr = curses.initscr()
+        curses.cbreak()
+        curses.noecho()
+        self.stdscr.keypad(True)
+        curses.curs_set(0)
+        self._init_colors()
 
     def _init_colors(self):
         import curses
 
-        if not curses.has_colors():
-            return
-        try:
-            curses.start_color()
-            curses.use_default_colors()
-            curses.init_pair(1, curses.COLOR_CYAN, -1)      # 标题/边框
-            curses.init_pair(2, curses.COLOR_GREEN, -1)     # 启用/完成
-            curses.init_pair(3, curses.COLOR_RED, -1)       # 跳过/错误
-            curses.init_pair(4, curses.COLOR_YELLOW, -1)    # 状态说明
-            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)  # 反白按钮
-            self._colors = True
-        except Exception:
-            self._colors = False
+        if not self._colors and curses.has_colors():
+            try:
+                curses.start_color()
+                curses.use_default_colors()
+                curses.init_pair(1, curses.COLOR_CYAN, -1)       # 标题
+                curses.init_pair(2, curses.COLOR_GREEN, -1)      # 成功/已配置
+                curses.init_pair(3, curses.COLOR_RED, -1)        # 失败
+                curses.init_pair(4, curses.COLOR_YELLOW, -1)     # 提示/未配置
+                curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)  # 反白按钮/选中
+                self._colors = True
+            except Exception:
+                self._colors = False
 
-    def _attr(self, color_pair: int) -> int:
+    def _attr(self, pair: int, extra=0) -> int:
         import curses
 
-        return curses.color_pair(color_pair) if self._colors else curses.A_NORMAL
+        base = curses.color_pair(pair) if self._colors else curses.A_NORMAL
+        return base | extra
 
     # ---- 绘制 ----
 
-    def _draw(self, stdscr):
+    def _draw(self):
         import curses
 
-        stdscr.erase()
-        h, w = stdscr.getmaxyx()
-        if self.stage == "task":
-            self._draw_task(stdscr, h, w)
+        self.stdscr.erase()
+        h, w = self.stdscr.getmaxyx()
+        self._draw_header(h, w)
+        # 卡片区域
+        y0, x0 = 4, 2
+        hh = h - 6
+        ww = w - 4
+        if hh < 6 or ww < 20:
+            self._safe_add(2, 2, "窗口太小", 0)
+            return
+        self._box(y0, x0, hh, ww)
+        if self.qs_active and self.qs:
+            self._draw_questions(y0, x0, hh, ww)
         else:
-            self._draw_review(stdscr, h, w)
-        stdscr.refresh()
+            self._draw_task_card(y0, x0, hh, ww)
+        self._draw_footer(h, w)
+        self.stdscr.refresh()
 
-    def _draw_task(self, stdscr, h, w):
+    def _draw_header(self, h, w):
         import curses
 
-        t = self.tasks[self.index]
-        done, note = self.statuses[self.index]
-        enabled = self.enabled[self.index]
-        total = len(self.tasks)
-
-        # 顶部标题
         title = " Ubuntu 新机初始化工具 "
-        self._safe_add(stdscr, 0, max(0, (w - len(title)) // 2), title, self._attr(1) | curses.A_BOLD)
-        stdscr.hline(1, 0, curses.ACS_HLINE, w)
-
+        self._safe_add(0, max(0, (w - len(title)) // 2), title,
+                       self._attr(5, curses.A_BOLD))
         # 进度
-        prog = f"第 {self.index + 1} / {total} 项"
-        self._safe_add(stdscr, 2, 2, prog, self._attr(4))
-        bar = self._progress(self.index + 1, total, w - 12)
-        self._safe_add(stdscr, 3, 2, bar, self._attr(1))
+        total = len(self.tasks)
+        prog = f" 第 {self.task_index + 1} / {total} 项 "
+        self._safe_add(2, 2, prog, self._attr(4))
+        bar_w = max(10, w - 20)
+        self._safe_add(2, 12, self._progress(self.task_index + 1, total, bar_w), self._attr(1))
 
-        # 名称
-        name = f"◆ {t.name}"
-        self._safe_add(stdscr, 5, 4, name, self._attr(1) | curses.A_BOLD)
+    def _draw_task_card(self, y0, x0, hh, ww):
+        import curses
 
+        task = self.tasks[self.task_index]
+        done, note = self.statuses[self.task_index]
+        cx = x0 + 2
+        inner_w = ww - 4
+
+        # 任务名
+        self._safe_add(y0 + 1, cx, f"◆ {task.name}", self._attr(1, curses.A_BOLD))
         # 描述
-        self._safe_add(stdscr, 6, 4, t.description, curses.A_NORMAL)
+        self._safe_add(y0 + 2, cx, task.description[:inner_w], curses.A_NORMAL)
 
-        # 当前状态
+        # 状态胶囊
         status_text = "已配置" if done else "未配置"
-        status_attr = self._attr(2) if done else self._attr(4)
-        self._safe_add(stdscr, 8, 4, f"当前状态：{status_text}", status_attr)
-        if note and note != "未配置":
-            self._safe_add(stdscr, 9, 4, f"　　{note}", self._attr(4))
+        color = 2 if done else 4
+        self._safe_add(y0 + 4, cx, "当前状态：", curses.A_NORMAL)
+        self._safe_add(y0 + 4, cx + 6, f" {status_text} ",
+                       self._attr(5, curses.A_BOLD) if done else self._attr(4, curses.A_BOLD))
+        if note:
+            self._safe_add(y0 + 5, cx, f"  {note[:inner_w]}", self._attr(4))
 
-        # 选项按钮
-        by = max(11, h - 6)
-        left = "启用"
-        right = "跳过"
-        self._draw_toggle(stdscr, by, 8, left, enabled)
-        self._draw_toggle(stdscr, by, 8 + len(left) + 8, right, not enabled)
+        # 执行/跳过切换
+        by = y0 + hh - 3
+        self._draw_toggle(by, cx, " 执行 ", self.enabled)
+        self._draw_toggle(by, cx + 8, " 跳过 ", not self.enabled)
 
-        # 底部分隔与按键提示
-        stdscr.hline(h - 2, 0, curses.ACS_HLINE, w)
-        hint = "←/→ 或 空格 切换   回车 下一步    b 上一步   a 全部启用   n 全部跳过   q 退出"
-        self._safe_add(stdscr, h - 1, 2, hint, self._attr(4))
+        if self.qs:
+            self._safe_add(by + 1, cx, "（执行前将询问该任务的配置项）", self._attr(4))
 
-    def _draw_review(self, stdscr, h, w):
+    def _draw_questions(self, y0, x0, hh, ww):
         import curses
 
-        title = " 确认执行 "
-        self._safe_add(stdscr, 0, max(0, (w - len(title)) // 2), title, self._attr(1) | curses.A_BOLD)
-        stdscr.hline(1, 0, curses.ACS_HLINE, w)
+        task = self.tasks[self.task_index]
+        cx = x0 + 2
+        inner_w = ww - 4
 
-        selected = [t for t, e in zip(self.tasks, self.enabled) if e]
-        self._safe_add(stdscr, 2, 2, f"将执行 {len(selected)} 项，跳过 {len(self.tasks) - len(selected)} 项：",
-                       self._attr(4))
+        self._safe_add(y0 + 1, cx, f"◆ {task.name} — 配置项",
+                       self._attr(1, curses.A_BOLD))
+        self._safe_add(y0 + 2, cx, f"（{self.qidx + 1}/{len(self.q_meta)}）", self._attr(4))
 
-        start = 3
-        for i, t in enumerate(self.tasks):
-            if start >= h - 3:
-                break
-            enabled = self.enabled[i]
-            mark = "✓" if enabled else "·"
-            mark_attr = self._attr(2) if enabled else self._attr(3)
-            self._safe_add(stdscr, start, 4, mark, mark_attr | curses.A_BOLD)
-            self._safe_add(stdscr, start, 6, t.name,
-                           curses.A_NORMAL if enabled else self._attr(3))
-            start += 1
+        meta = self.q_meta[self.qidx]
+        q = meta["q"]
+        self._safe_add(y0 + 4, cx, q["name"], self._attr(5, curses.A_BOLD))
 
-        stdscr.hline(h - 2, 0, curses.ACS_HLINE, w)
-        hint = "回车 开始执行    b 返回修改    q 退出"
-        self._safe_add(stdscr, h - 1, 2, hint, self._attr(4))
+        if q["type"] == "choice":
+            for i, opt in enumerate(meta["options"]):
+                if y0 + 6 + i >= y0 + hh - 3:
+                    break
+                mark = "▶" if i == meta["cursor"] else "  "
+                attr = self._attr(5, curses.A_BOLD) if i == meta["cursor"] else curses.A_NORMAL
+                self._safe_add(y0 + 6 + i, cx + 2, f"{mark} {opt}", attr)
+        else:
+            yes = " ● 是 " if meta["bool_val"] else " ○ 是 "
+            no = " ● 否 " if not meta["bool_val"] else " ○ 否 "
+            self._draw_toggle(y0 + 6, cx + 2, yes, meta["bool_val"])
+            self._draw_toggle(y0 + 6, cx + 12, no, not meta["bool_val"])
 
-    def _draw_toggle(self, stdscr, y, x, label, active):
+    def _draw_footer(self, h, w):
         import curses
 
-        text = f" {label} "
-        attr = self._attr(5) | curses.A_BOLD if active else self._attr(3)
-        self._safe_add(stdscr, y, x, text, attr)
+        self._safe_add(h - 1, 0, " " * w, self._attr(5))
+        if self.qs_active and self.qs:
+            q = self.q_meta[self.qidx]["q"]
+            if q["type"] == "choice":
+                hint = " ↑/↓ 选择   回车 确认   b 返回   q 退出 "
+            else:
+                hint = " ←/→ 或 空格 切换   回车 确认   b 返回   q 退出 "
+        else:
+            hint = " ←/→ 或 空格 切换执行/跳过   回车 确认   q 退出 "
+        self._safe_add(h - 1, 2, hint, self._attr(5, curses.A_BOLD))
+
+    # ---- 小工具 ----
+
+    def _draw_toggle(self, y, x, label, active):
+        import curses
+
+        attr = self._attr(5, curses.A_BOLD) if active else self._attr(3)
+        self._safe_add(y, x, label, attr)
 
     def _progress(self, cur, total, width) -> str:
-        if width < 6:
+        if width < 6 or total == 0:
             return ""
-        filled = int(round((cur / total) * width))
+        filled = int(round(cur / total * width))
         return "[" + "#" * filled + "-" * (width - filled) + "]"
 
-    def _safe_add(self, win, y, x, text, attr=0):
+    def _box(self, y, x, hh, ww):
+        import curses
+
+        s = self.stdscr
+        for i in range(ww):
+            try:
+                s.addch(y, x + i, curses.ACS_HLINE)
+                s.addch(y + hh - 1, x + i, curses.ACS_HLINE)
+            except curses.error:
+                pass
+        for j in range(hh):
+            try:
+                s.addch(y + j, x, curses.ACS_VLINE)
+                s.addch(y + j, x + ww - 1, curses.ACS_VLINE)
+            except curses.error:
+                pass
+        for ch, yy, xx in ((curses.ACS_ULCORNER, y, x),
+                           (curses.ACS_URCORNER, y, x + ww - 1),
+                           (curses.ACS_LLCORNER, y + hh - 1, x),
+                           (curses.ACS_LRCORNER, y + hh - 1, x + ww - 1)):
+            try:
+                s.addch(yy, xx, ch)
+            except curses.error:
+                pass
+
+    def _safe_add(self, y, x, text, attr=0):
+        import curses
+
         try:
-            win.addnstr(y, x, text, win.getmaxyx()[1] - x - 1, attr)
+            self.stdscr.addnstr(y, x, text, self.stdscr.getmaxyx()[1] - x - 1, attr)
         except curses.error:
             pass
 
@@ -228,27 +436,47 @@ class _Wizard:
 # 无 TTY 降级：逐项询问
 # --------------------------------------------------------------------------
 
-def _plain_select(tasks, cfg) -> list:
-    print("Ubuntu 初始化工具（无 TTY 模式）——逐项确认，回车=推荐值")
-    selected = []
-    for t in tasks:
+def _plain_run(tasks, cfg, force, log_dir) -> dict:
+    from . import runner
+
+    logger = runner.Logger(log_dir)
+    ordered = runner.topo_sort(tasks)
+    results: dict = {}
+
+    print("Ubuntu 初始化工具（无 TTY 模式）——逐步确认，回车=推荐值")
+    for t in ordered:
         done, note = _status_of(t, cfg)
         default = "n" if done else "y"
-        label = "跳过（已配置）" if done else "启用"
+        label = "跳过（已配置）" if done else "执行"
         try:
             ans = input(f"[{label}] {t.name} — {t.description}  [Y/n] ").strip().lower()
         except EOFError:
             ans = ""
         want = (ans in ("", "y", "yes")) if default == "y" else (ans in ("y", "yes"))
-        if want:
-            selected.append(t)
-    if not selected:
-        return []
-    print("将执行：")
-    for t in selected:
-        print(f"  - {t.name}")
-    try:
-        ans = input("确认开始？[y/N] ").strip().lower()
-    except EOFError:
-        ans = ""
-    return selected if ans in ("y", "yes") else []
+        if not want:
+            results[t.id] = "skip"
+            continue
+
+        # 配置项
+        for q in questions_for_task(cfg, t.id):
+            opts = resolve_options(cfg, q)
+            if q["type"] == "choice":
+                cur = getattr(cfg, q["config_key"], None)
+                for i, o in enumerate(opts):
+                    mark = ">" if o == cur else " "
+                    print(f"  {mark} {i + 1}. {o}")
+                raw = input(f"{q['name']} [1-{len(opts)}] ").strip()
+                if raw.isdigit() and 1 <= int(raw) <= len(opts):
+                    setattr(cfg, q["config_key"], opts[int(raw) - 1])
+            else:
+                cur = getattr(cfg, q["config_key"], "yes") == "yes"
+                raw = input(f"{q['name']} [y/n，默认 {'y' if cur else 'n'}] ").strip().lower()
+                if raw:
+                    setattr(cfg, q["config_key"], "yes" if raw in ("y", "yes") else "no")
+
+        results[t.id] = runner.run_one(t, cfg, logger, force=force)
+        print()
+
+    logger.close()
+    runner.print_summary(results)
+    return results

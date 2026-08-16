@@ -12,8 +12,15 @@ _SOURCES_DEB822 = "/etc/apt/sources.list.d/ubuntu.sources"
 
 
 def _mirror_base(cfg) -> str:
-    url = cfg.APT_MIRROR_URL.rstrip("/")
-    return url
+    name = getattr(cfg, "APT_MIRROR", None)
+    mirrors = getattr(cfg, "APT_MIRRORS", None)
+    if mirrors and name in mirrors:
+        return mirrors[name].rstrip("/")
+    # 兼容旧 config：直接返回字符串
+    url = getattr(cfg, "APT_MIRROR_URL", None)
+    if url:
+        return url.rstrip("/")
+    raise utils.TaskError("未配置 APT_MIRRORS/APT_MIRROR")
 
 
 def _has_mirror(cfg) -> bool:

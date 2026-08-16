@@ -55,21 +55,35 @@ cd ubuntu-bootstrap
 
 ### 向导操作说明
 
-- 每个配置项单独一屏，显示名称、说明、当前状态（已配置/未配置）。
-- 用 **←/→ 或空格** 切换「启用 / 跳过」。
-- **回车** 进入下一项，**b** 返回上一项；最后一项回车进入汇总确认。
-- 已配置的项目默认「跳过」，未配置的默认「启用」，一路回车即可接受推荐。
-- 汇总页会列出将执行/跳过的清单，**回车** 开始、**b** 返回修改、**q** 退出。
+- 向导**逐步执行**：展示一个任务 → 选择执行/跳过 →（可选）选择该任务的配置项 → 立即执行 → 进入下一个任务。
+- 用 **←/→ 或空格** 切换「执行 / 跳过」；**回车** 确认。
+- 有配置项的任务（如镜像源、时区、zsh 主题、SSH 开关）会在执行前进入配置选择界面。
+- 已配置的任务默认「跳过」，未配置的默认「执行」，一路回车即可接受推荐。
+- 执行时命令输出（如 apt 进度）会实时显示在终端，完成后回车继续下一项。
+
+### 可交互配置项
+
+| 任务 | 可交互配置 |
+|---|---|
+| apt 源 | 镜像源（清华 / 阿里云 / 中科大 / 华为云） |
+| 时区与 locale | 时区（上海/香港/东京/UTC）、语言（zh_CN/en_US） |
+| zsh | 主题（default / random / powerlevel10k） |
+| neovim / fzf | 安装方式（apt / github） |
+| SSH | 密码认证、允许 root 登录 |
+
+> 若觉得某项无需交互，可在 `config.py` 的 `QUESTIONS` 里把对应项的 `interactive` 改为 `False`，向导会直接用 `config.py` 里的值。
 
 ## 配置
 
 首次运行会自动从 `config.example.py` 复制生成 `config.py`，按需修改：
 
-- `APT_MIRROR_URL`：镜像地址（清华/阿里/中科大）
+- `APT_MIRRORS` / `APT_MIRROR`：镜像源候选字典与当前选择
+- `TIMEZONES` / `TIMEZONE`、`LOCALES` / `LOCALE`：时区与语言候选
 - `ZSH_THEME`：`default` / `random` / `powerlevel10k`
 - `ZSH_PLUGINS`：插件列表
 - `NEOVIM_INSTALL_METHOD` / `FZF_INSTALL_METHOD`：`apt` 或 `github`
 - `SSH_PASSWORD_AUTH` / `SSH_PERMIT_ROOT_LOGIN`：SSH 开关
+- `QUESTIONS`：向导交互项定义（可设 `interactive=False` 关闭单项交互）
 
 ## 说明
 
