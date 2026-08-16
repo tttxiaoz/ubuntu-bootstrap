@@ -46,3 +46,36 @@ def test_ensure_config_updates_existing_key(tmp_path, monkeypatch):
     assert "PasswordAuthentication no" in text
     assert "PasswordAuthentication yes" not in text
     assert "PermitRootLogin yes" in text
+
+
+class _Proc(SimpleNamespace):
+    def __init__(self, stdout="", returncode=0):
+        super().__init__(stdout=stdout, returncode=returncode)
+
+
+def _patch_ss(monkeypatch, stdout):
+    monkeypatch.setattr(ssh_module.utils, "command_exists", lambda n: n == "ss")
+    monkeypatch.setattr(ssh_module.utils, "run_cmd", lambda *a, **k: _Proc(stdout))
+    return SshTask()
+
+
+def test_port_listening_true(monkeypatch):
+    t = _patch_ss(monkeypatch, "LISTEN 0 128 0.0.0.0:22 0.0.0.0:*\n")
+    assert t._port_listening(22) is True
+
+
+def test_port_listening_false(monkeypatch):
+    t = _patch_ss(monkeypatch, "LISTEN 0 128 0.0.0.0:80 0.0.0.0:*\n")
+    assert t._port_listening(22) is False
+
+
+def test_port_listening_not_match_2200(monkeypatch):
+    t = _patch_ss(monkeypatch, "LISTEN 0 128 0.0.0.0:2200 0.0.0.0:*\n")
+    assert t._port_listening(22) is False
+
+
+def test_service_active_falls_back_to_port(monkeypatch):
+    monkeypatch.setattr(ssh_module.utils, "command_exists", lambda n: n == "ss")
+    monkeypatch.setattr(ssh_module.utils, "run_cmd",
+                        lambda *a, **k: _Proc("LISTEN 0 128 0.0.0.0:22 0.0.0.0:*\n"))
+    assert SshTask._service_active() is True

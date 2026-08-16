@@ -9,6 +9,7 @@ from .base_tools import BaseToolsTask
 from .nvim import NvimTask
 from .fzf import FzfTask
 from .zsh import ZshTask
+from .set_password import SetPasswordTask
 from .ssh import SshTask
 
 # 顺序即菜单显示顺序；depends_on 决定执行顺序
@@ -20,6 +21,7 @@ REGISTRY: list = [
     NvimTask(),
     FzfTask(),
     ZshTask(),
+    SetPasswordTask(),
     SshTask(),
 ]
 

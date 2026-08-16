@@ -221,6 +221,71 @@ def confirm(prompt: str, *, default: bool = True) -> bool:
     return raw in ("y", "yes")
 
 
+def multiselect(options: list, *, header: str = "", selected: list | None = None) -> list:
+    """多选，返回选中的列表；questionary 缺失时降级为逗号分隔数字选择。"""
+    if not options:
+        return []
+    preselect = list(selected) if selected else list(options)
+    if questionary_available():
+        import questionary
+        try:
+            result = questionary.checkbox(header or "请选择", choices=list(options),
+                                          default=preselect).ask()
+        except KeyboardInterrupt:
+            return preselect
+        return list(result) if result else preselect
+    # 降级：数字多选（回车=默认全选/已选）
+    if header:
+        print(_paint(header or "请选择（回车=默认）", "cyan"))
+    for i, o in enumerate(options):
+        mark = "x" if o in preselect else " "
+        print(f"  {_paint(mark, 'green')} {i + 1}. {o}")
+    try:
+        raw = input("输入序号（逗号分隔，回车=默认）: ").strip()
+    except EOFError:
+        return preselect
+    if not raw:
+        return preselect
+    idxs = [int(x) for x in raw.replace(",", " ").split() if x.isdigit()]
+    return [options[i - 1] for i in idxs if 1 <= i <= len(options)]
+
+
+def password(prompt: str) -> str | None:
+    """输入密码（两次确认），返回密码或 None（取消/不一致）。"""
+    if questionary_available():
+        import questionary
+        try:
+            p1 = questionary.password(f"{prompt}（输入新密码）:").ask()
+        except KeyboardInterrupt:
+            return None
+        if not p1:
+            return None
+        try:
+            p2 = questionary.password(f"{prompt}（再次确认）:").ask()
+        except KeyboardInterrupt:
+            return None
+        if p1 != p2:
+            print(_paint("两次输入不一致，已跳过", "red"))
+            return None
+        return p1
+    # 降级：getpass
+    import getpass
+    try:
+        p1 = getpass.getpass(f"{prompt}: ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+    if not p1:
+        return None
+    try:
+        p2 = getpass.getpass(f"再次确认 {prompt}: ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+    if p1 != p2:
+        print(_paint("两次输入不一致，已跳过", "red"))
+        return None
+    return p1
+
+
 # --------------------------------------------------------------------------
 # 结果摘要
 # --------------------------------------------------------------------------

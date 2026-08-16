@@ -27,6 +27,13 @@ BASE_PACKAGES = [
     "git", "curl", "wget", "htop", "build-essential", "unzip",
     "ca-certificates", "gnupg", "lsb-release", "software-properties-common",
 ]
+# 实际安装的工具子集；留空表示「安装全部候选」，向导中可多选勾选
+BASE_PACKAGES_SELECTED = []
+
+# ============ 用户密码 ============
+# 设置密码的目标用户：sudo 运行时为真实调用者，直接 root 运行时为 root。
+# 交互式向导会安全地询问密码（不落盘）；--all 非交互时仅当此处显式填写才生效。
+USER_PASSWORD = ""
 
 # ============ zsh ============
 OH_MY_ZSH_INSTALL_URL = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
@@ -61,7 +68,7 @@ TUI_PACKAGES = ["rich", "questionary"]
 # 每一项描述向导中的一个交互配置。
 #   id          唯一标识
 #   name        向导中显示的标题
-#   type        "choice"（单选）| "bool"（是/否，写 "yes"/"no"）
+#   type        "choice"（单选）| "bool"（是/否，写 "yes"/"no"）| "multi"（多选，写 list）| "password"（密码，不落盘）
 #   options     候选：以 "@" 开头表示引用上方同名变量（dict 取 keys 保序，list 直接取）；否则为静态列表
 #   config_key  选中的值写回 config 的同名属性
 #   task        关联的任务 id（向导到达该任务时展示此配置项）
@@ -76,6 +83,9 @@ QUESTIONS = [
     {"id": "locale", "name": "系统语言", "type": "choice",
      "options": "@LOCALES", "config_key": "LOCALE",
      "task": "locale_timezone", "interactive": True},
+    {"id": "base_packages", "name": "要安装的基础工具", "type": "multi",
+     "options": "@BASE_PACKAGES", "config_key": "BASE_PACKAGES_SELECTED",
+     "task": "base_tools", "interactive": True},
     {"id": "zsh_theme", "name": "zsh 主题", "type": "choice",
      "options": ["default", "random", "powerlevel10k"],
      "config_key": "ZSH_THEME", "task": "zsh", "interactive": True},
@@ -85,6 +95,8 @@ QUESTIONS = [
     {"id": "fzf_method", "name": "fzf 安装方式", "type": "choice",
      "options": ["apt", "github"], "config_key": "FZF_INSTALL_METHOD",
      "task": "fzf", "interactive": True},
+    {"id": "user_password", "name": "设置用户密码", "type": "password",
+     "config_key": "USER_PASSWORD", "task": "set_password", "interactive": True},
     {"id": "ssh_password", "name": "SSH 密码认证", "type": "bool",
      "config_key": "SSH_PASSWORD_AUTH", "task": "ssh", "interactive": True},
     {"id": "ssh_root", "name": "允许 root 登录", "type": "bool",

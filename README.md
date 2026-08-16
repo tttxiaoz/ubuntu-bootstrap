@@ -35,11 +35,12 @@ cd ubuntu-bootstrap
 | apt 源切换 | 换国内镜像（默认清华 TUNA，可在 config.py 改），兼容 22.04 的 `sources.list` 与 24.04/26.04 的 deb822 `.sources` |
 | 时区与 locale | 时区 Asia/Shanghai，locale zh_CN.UTF-8 |
 | 系统更新 | `apt-get update && upgrade` |
-| 基础工具 | git / curl / wget / htop / build-essential 等 |
+| 基础工具 | git / curl / wget / htop / build-essential 等（向导可多选） |
 | neovim | 安装 neovim，并将 vi/vim 指向 nvim |
 | fzf | 安装命令行模糊查找工具 |
 | zsh | zsh + oh-my-zsh + 插件（git / web-search / z / fzf / zsh-autosuggestions / zsh-syntax-highlighting）+ 主题（default / random / powerlevel10k） |
-| SSH | openssh-server + 按配置设置密码认证 / root 登录 + 放行 22 端口（默认开启密码与 root，见下方安全说明） |
+| 设置用户密码 | 为当前用户（sudo 时真实用户 / root 时 root）设置登录密码，交互式输入、不落盘 |
+| SSH | openssh-server + 按配置设置密码认证 / root 登录 + 重启生效并放行 22 端口（默认开启密码与 root，见下方安全说明） |
 
 每个任务执行前都会**先检测是否已配置**，已配置的自动跳过（幂等）；菜单中也会实时显示每个任务的当前状态。
 
@@ -85,8 +86,10 @@ cd ubuntu-bootstrap
 |---|---|
 | apt 源 | 镜像源（清华 / 阿里云 / 中科大 / 华为云） |
 | 时区与 locale | 时区（上海/香港/东京/UTC）、语言（zh_CN/en_US） |
+| 基础工具 | 要安装的工具（多选） |
 | zsh | 主题（default / random / powerlevel10k） |
 | neovim / fzf | 安装方式（apt / github） |
+| 设置用户密码 | 密码（隐藏输入，不落盘） |
 | SSH | 密码认证、允许 root 登录 |
 
 > 若觉得某项无需交互，可在 `config.py` 的 `QUESTIONS` 里把对应项的 `interactive` 改为 `False`，向导会直接用 `config.py` 里的值。
@@ -97,9 +100,11 @@ cd ubuntu-bootstrap
 
 - `APT_MIRRORS` / `APT_MIRROR`：镜像源候选字典与当前选择
 - `TIMEZONES` / `TIMEZONE`、`LOCALES` / `LOCALE`：时区与语言候选
+- `BASE_PACKAGES` / `BASE_PACKAGES_SELECTED`：基础工具候选与选中子集（留空=安装全部）
 - `ZSH_THEME`：`default` / `random` / `powerlevel10k`
 - `ZSH_PLUGINS`：插件列表
 - `NEOVIM_INSTALL_METHOD` / `FZF_INSTALL_METHOD`：`apt` 或 `github`
+- `USER_PASSWORD`：非交互（`--all`）时用于设置用户密码（可选，明文存储请自行权衡）
 - `SSH_PASSWORD_AUTH` / `SSH_PERMIT_ROOT_LOGIN`：SSH 开关
 - `PIP_INDEX_URL` / `TUI_PACKAGES`：交互 UI 依赖的 pip 源与包列表
 - `QUESTIONS`：向导交互项定义（可设 `interactive=False` 关闭单项交互）
@@ -126,6 +131,15 @@ SSH 任务默认沿用「密码认证 + 允许 root 登录」（`SSH_PASSWORD_AU
 当上述任一项保持 `yes` 时，任务执行会打印醒目的安全提醒。
 
 > 实现上，SSH 配置写入 `/etc/ssh/sshd_config.d/99-bootstrap.conf`（高优先级 drop-in），可覆盖 cloud-init 等写入的默认值；状态判定用 `sshd -T` 读取**生效**配置，避免漏判被 drop-in 覆盖的情况。
+
+### 远程无法登录排查
+
+配置完成后若仍无法 SSH 登录，按顺序排查：
+
+1. **目标用户是否有密码**：密码登录要求目标用户有可用密码。工具会先执行「设置用户密码」任务（`sudo` 时设为真实用户），否则请手动 `passwd <user>`。
+2. **服务是否重启生效**：任务会 `systemctl restart ssh`（无 systemctl 时降级 `service ssh restart`）并验证 22 端口监听；可 `ss -tln | grep :22` 确认。
+3. **云安全组**：云服务器还需在控制台放行 22 端口（脚本无法代劳）。
+4. **账号是否被锁定**：`passwd -S <user>` 显示 `L` 表示被锁定，执行 `passwd -u <user>` 解锁。
 
 ### 任务幂等性
 

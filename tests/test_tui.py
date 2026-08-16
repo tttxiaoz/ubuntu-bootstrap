@@ -67,3 +67,36 @@ def test_print_summary_table_fallback(monkeypatch, capsys):
     tui.print_summary_table([("zsh", "✅"), ("nvim", "❌")])
     out = capsys.readouterr().out
     assert "zsh" in out and "nvim" in out
+
+
+def test_multiselect_fallback_all_on_enter(monkeypatch):
+    monkeypatch.setattr(tui, "questionary_available", lambda: False)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "")
+    assert tui.multiselect(["a", "b", "c"], header="h") == ["a", "b", "c"]
+
+
+def test_multiselect_fallback_subset(monkeypatch):
+    monkeypatch.setattr(tui, "questionary_available", lambda: False)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "1,3")
+    assert tui.multiselect(["a", "b", "c"]) == ["a", "c"]
+
+
+def test_multiselect_fallback_empty_options():
+    assert tui.multiselect([]) == []
+
+
+def test_password_fallback_match(monkeypatch):
+    import getpass
+
+    monkeypatch.setattr(tui, "questionary_available", lambda: False)
+    monkeypatch.setattr(getpass, "getpass", lambda *a, **k: "pw123")
+    assert tui.password("密码") == "pw123"
+
+
+def test_password_fallback_mismatch(monkeypatch):
+    import getpass
+
+    monkeypatch.setattr(tui, "questionary_available", lambda: False)
+    it = iter(["pw1", "pw2"])
+    monkeypatch.setattr(getpass, "getpass", lambda *a, **k: next(it))
+    assert tui.password("密码") is None
