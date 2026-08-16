@@ -56,17 +56,18 @@ def list_tasks(cfg) -> None:
         print(f"  {t.id:16} [{status}] {t.name} — {note}")
 
 
-def select_tasks_from_args(args, cfg) -> list:
+def select_tasks_from_args(args, cfg):
+    """返回 (tasks, interactive)。interactive=True 表示走了向导（已内含确认）。"""
     if args.all:
-        return list(REGISTRY)
+        return list(REGISTRY), False
     if args.only:
         ids = [s.strip() for s in args.only.split(",") if s.strip()]
         unknown = [i for i in ids if i not in TASKS]
         if unknown:
             print(f"未知任务 id: {', '.join(unknown)}")
             sys.exit(1)
-        return [TASKS[i] for i in ids]
-    return ui.select_tasks(REGISTRY, cfg)
+        return [TASKS[i] for i in ids], False
+    return ui.select_tasks(REGISTRY, cfg), True
 
 
 def main() -> int:
@@ -92,18 +93,17 @@ def main() -> int:
         list_tasks(cfg)
         return 0
 
-    tasks = select_tasks_from_args(args, cfg)
+    tasks, interactive = select_tasks_from_args(args, cfg)
     if not tasks:
         print("未选择任何任务，退出。")
         return 0
 
-    # 打印将执行的任务清单
-    ordered = runner.topo_sort(tasks)
-    print("将执行以下任务：")
-    for t in ordered:
-        print(f"  - {t.name}（{t.id}）")
-
-    if not args.dry_run and not args.yes:
+    # 命令行参数（--all/--only）没有向导确认，这里打印清单并二次确认
+    if not interactive and not args.dry_run and not args.yes:
+        ordered = runner.topo_sort(tasks)
+        print("将执行以下任务：")
+        for t in ordered:
+            print(f"  - {t.name}（{t.id}）")
         try:
             ans = input("\n确认执行？[y/N] ").strip().lower()
         except EOFError:
